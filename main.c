@@ -70,7 +70,8 @@ int main(void) {
                 //now check this file exists.
                 if (access(file, F_OK) == 0) {
                     printf("sending %s...\n", file);
-                    sendHTML(file, clientfd);
+                    sendHTML(file, clientfd, getdata.variables);
+                    printf("HTML send\n");
                 }
                 else { //send an error eventually
                     printf("error sending %s\n", file);
@@ -78,19 +79,22 @@ int main(void) {
                 free(getdata.link);
                 free(file);
             }
-            else printf("no path\n");
+            else {
+                printf("no path\n");
+                sendError(clientfd, ERROR_404);
+            }
             //we just have to concat .html to render it.
             
             //also, print every key value pair in query
-            if (getdata.qmap) {
+            if (getdata.variables) {
                 printf("key value pairs:\n");
-                for (int i = 0; i < getdata.qmap->capacity; i++) {
-                    if (getdata.qmap->items[i] != NULL) {
-                        printf("%s->%s\n", getdata.qmap->items[i]->key, getdata.qmap->items[i]->value);
+                for (int i = 0; i < getdata.variables->capacity; i++) {
+                    if (getdata.variables->items[i] != NULL) {
+                        printf("%s->%s\n", getdata.variables->items[i]->key, getdata.variables->items[i]->value);
                     }
                 }
 
-                qmapFree(getdata.qmap);
+                qmapFree(getdata.variables);
             }
 
         }
@@ -106,6 +110,6 @@ int main(void) {
         close(clientfd); //end current interraction
     }
     
-    close (socketfd);
+    close(socketfd);
     return 0;
 }

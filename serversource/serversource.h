@@ -62,60 +62,7 @@ int getMainFD(const char* address, const char* port, bool passive) {
     return fd;
 }
 
-//function for looking through a html page to find special tags for queries
-//pretty much just a helper function for directly putting queries in html thats it
-char* genPageFromTemplate(char* filepath, queryMap* qmap) {
-    FILE* file = fopen(filepath, "r");
 
-    fseek(file, 0, SEEK_END);
-    unsigned int size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char* data = (char*) calloc(size + 1 + 1024, sizeof(char)); //this is pretty unsafe since 1024 is arbitrary
-    fread(data, sizeof(char), size, file);
-
-    fclose(file);
-
-    //look through the string until {} encountered
-
-    //use a stack to keep track
-    char bracketStack[50] = {0};
-    int bsi = 0;
-
-    for (int i = 0; i < size; i++) {
-        //stuff
-    }
-
-}
-
-//lets make a function for sending over an html file
-
-int sendHTML(const char* filepath, int client) {
-    //first, prepare the html
-    FILE* file = fopen(filepath, "r");
-
-    //get the size of the file and fread it into a buffer
-
-    fseek(file, 0, SEEK_END);
-    unsigned int size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char* data = (char*) calloc(size + 1, sizeof(char));
-    fread(data, sizeof(char), size, file);
-
-    fclose(file);
-
-    //now send the HTTP response, it must be in a specific format
-    //first, the header
-    const char* header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n";
-    
-    send(client, header, strlen(header), 0);
-    send(client, data, strlen(data), 0);
-    
-
-    free(data);
-    return 1;
-}
 
 //there are nine RESTful http requests that are commonly used:
 //GET, PUT, POST, DELETE, PATCH, HEAD, OPTIONS, TRACE, CONNECT
@@ -328,12 +275,12 @@ typedef struct getSplit {
     char* link;
     unsigned int linkSize;
     
-    queryMap* qmap;
+    queryMap* variables;
 
 } getSplit;
 
 getSplit splitGET(clientreq request) {
-    getSplit target = {.link = NULL, .linkSize = 0, .qmap = NULL};
+    getSplit target = {.link = NULL, .linkSize = 0, .variables = NULL};
     if (request.type != GET || request.data == NULL) {
         return target;
     }
@@ -360,7 +307,7 @@ getSplit splitGET(clientreq request) {
     i++;
     if (i >= request.dataSize) return target;
     
-    target.qmap = qmapInit();
+    target.variables = qmapInit();
 
     //now we have to look through the queries and follow two rules:
     //start with a key until an = sign, then its the corresponding value
@@ -391,8 +338,8 @@ getSplit splitGET(clientreq request) {
                 printf("state 0\n");
             }
             else { //encountered bad query
-                qmapFree(target.qmap);
-                target.qmap = NULL;
+                qmapFree(target.variables);
+                target.variables = NULL;
                 return target;
             }
         }
@@ -408,13 +355,13 @@ getSplit splitGET(clientreq request) {
                 memset(current, 0, initSize);
                 ci = 0;
 
-                qmapInsert(target.qmap, newkey, newvalue);
+                qmapInsert(target.variables, newkey, newvalue);
                 printf("state 1\n");
                 state = 0;
             }
             else { //encountered bad query
-                qmapFree(target.qmap);
-                target.qmap = NULL;
+                qmapFree(target.variables);
+                target.variables = NULL;
                 return target;
             }
         }
@@ -440,11 +387,11 @@ getSplit splitGET(clientreq request) {
         memset(current, 0, initSize);
         ci = 0;
 
-        qmapInsert(target.qmap, newkey, newvalue);
+        qmapInsert(target.variables, newkey, newvalue);
     }
     else {
-        qmapFree(target.qmap);
-        target.qmap = NULL;
+        qmapFree(target.variables);
+        target.variables = NULL;
     }
 
     return target;
@@ -508,6 +455,111 @@ clientreq getClientRequest(int client) {
     }
     
     return request;
+}
+
+
+
+//lets make a function for sending over an html file
+int sendHTML(const char* filepath, int client, queryMap* variables) {
+    //first, prepare the html
+    FILE* file = fopen(filepath, "r");
+
+    //get the size of the file and fread it into a buffer
+
+    fseek(file, 0, SEEK_END);
+    unsigned int size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+
+    //now send the HTTP response, it must be in a specific format
+    //first, the header
+    const char* header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n";
+    
+    send(client, header, strlen(header), 0);
+
+    //we will try write to data using a for loop, to keep track of our frontend shenanigans
+    char* data = (char*) calloc(size + 1, sizeof(char));
+    int c = 0, i = 0;
+
+    //use a stack to keep track of brackets
+    char bracketStack[50] = {0};
+    int bsi = 0;
+
+    while ((c = fgetc(file)) != EOF) {
+        if (c == '{') {
+            bracketStack[bsi] = c;
+            bsi++;
+            //the simplest way to do this is using a COMMAND:VARIABLE(S) system.
+            //some example commands can be VAR (get a variable value) IF (conditional html) and INSERT (putting in other HTML files)
+            //INSERT could potentially take in parameters to transfer variables over.
+            //on that note, having a STORE (creating a new variable and putting it in the current variable map) could be nice.
+        }
+        else if (c == '}') {
+            bracketStack[bsi] = 0;
+            bsi--;
+        }
+        else {
+            data[i] = (char)c;
+            i++;
+        }
+    }
+    data[i] = 0;
+
+    send(client, data, strlen(data), 0);
+    
+
+    free(data);
+    fclose(file);
+    return 1;
+}
+
+//typedef int error;
+typedef enum ErrorType {
+    ERROR_400,
+    ERROR_401,
+    ERROR_402,
+    ERROR_404,
+    ERROR_405,
+    ERROR_406,
+    ERROR_408,
+    ERROR_409,
+    ERROR_410,
+    ERROR_411,
+    ERROR_412,
+    ERROR_413,
+    ERROR_414,
+    ERROR_415,
+    ERROR_416,
+    ERROR_417,
+    ERROR_418,
+    ERROR_421,
+    ERROR_422,
+    ERROR_423,
+    ERROR_424,
+    ERROR_425,
+    ERROR_426,
+    ERROR_428,
+    ERROR_429,
+    ERROR_431,
+    ERROR_451
+} ErrorType;
+
+int sendError(int client, ErrorType error) {
+    switch (error) {
+        case ERROR_404: {
+            const char* msg = 
+            "HTTP/1.1 404 Not found\r\n"
+            "Content-Length: 0\r\n"
+            "Connection: close\r\n"
+            "\r\n";
+            send(client, msg, strlen(msg), 0);
+        }
+        default: {
+            return 0;
+        }
+    }
+
+    return 1;
 }
 
 #endif

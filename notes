@@ -1,0 +1,14 @@
+Stuff to do:
+
+implement {} reading into sendHTML
+learn how to send things other than HTML 
+learn how to implement CSS
+
+most of this is frontend stuff. idk how complicated id like the backend to be.
+
+EVENTUALLY, ill integrate CGame into this framework, which would require knowledge of web assembly injection, so thats something i guess.
+
+also database integration. i dont know if we need to actually do this because a DB is separate from a website, including the code presumably.
+(if i ever want to have a database for this thing, ill just look for a single header file somewhere to do it for me)
+
+oh and of course make this whole thing cross platform between linux and windows but shouldnt be hard at all. at least much easier than with CGame.
