@@ -32,9 +32,10 @@ int main(void) {
     //we can still use our qmap
 
     queryMap* linkmap = qmapInit();
-    qmapInsert(linkmap, "/", "./templates/main");
-    qmapInsert(linkmap, "/main", "./templates/main");
-    qmapInsert(linkmap, "/cool", "./templates/cool");
+    qmapInsert(linkmap, "/", "./templates/main.html");
+    qmapInsert(linkmap, "/main", "./templates/main.html");
+    qmapInsert(linkmap, "/cool", "./templates/cool.html");
+    qmapInsert(linkmap, "/input", "./templates/input.html");
 
     while (true) {
 
@@ -58,26 +59,38 @@ int main(void) {
         if (request.type == GET) {
             getSplit getdata = splitGET(request);
             printf("getdata.link->%s\n", getdata.link);
+
+            //lets store some variables
+            //we should have a function for combining two queryMaps together, with the structure looking like
+            //qmapCombine(q1, q2) --> (q1 gets inserted into q2)
+            //this is to keep getdata.variables NULL, and to make life cleaner.
+            queryMap* temp = qmapInit();
+            queryMap* vars = qmapCombine(getdata.variables, temp);
+            qmapFree(temp);
+
+            qmapInsert(vars, "fart", "ass");
+
             //getdata stores a link. we have to map this link to our server path
             char* path = qmapGet(linkmap, getdata.link);
             printf("path gotten\n");
             if (path != NULL) {    
-                char* file = (char*) calloc(strlen(path) + sizeof(".html") + 2, sizeof(char));
-                //strcpy(file, ".");
-                strcpy(file, path);
-                strcat(file, ".html");
+                // char* file = (char*) calloc(strlen(path) + sizeof(".html") + 2, sizeof(char));
+                // //strcpy(file, ".");
+                // strcpy(file, path);
+                // strcat(file, ".html");
 
                 //now check this file exists.
-                if (access(file, F_OK) == 0) {
-                    printf("sending %s...\n", file);
-                    sendHTML(file, clientfd, getdata.variables);
-                    printf("HTML send\n");
+                if (access(path, F_OK) == 0) {
+                    printf("sending %s...\n", path);
+                    if (!sendHTML(path, clientfd, vars)) {
+                        sendError(clientfd, ERROR_404); //change the error
+                    }
+                    else printf("HTML send\n");
                 }
                 else { //send an error eventually
-                    printf("error sending %s\n", file);
+                    printf("error sending %s\n", path);
                 } 
                 free(getdata.link);
-                free(file);
             }
             else {
                 printf("no path\n");
@@ -96,6 +109,77 @@ int main(void) {
 
                 qmapFree(getdata.variables);
             }
+
+            qmapFree(vars);
+
+        }
+        else if (request.type == POST) {
+            printf("POST REQUEST GOT\n");
+            //just print out the data and resend input
+            //we need a splitPOST function eventually
+            postSplit postdata = splitPOST(request);
+            printf("\n\nlink is %s,\ninput is %i\n\n", postdata.link, (postdata.input != 0));
+            //just send the html and send the link
+            queryMap* temp = qmapInit();
+            queryMap* vars = qmapCombine(postdata.input, temp);
+            qmapFree(temp);
+
+            qmapInsert(vars, "fart", "ass");
+
+            printf("\n\nvars done\n\n");
+            if (postdata.input) {
+                printf("key value pairs:\n");
+                for (int i = 0; i < postdata.input->capacity; i++) {
+                    if (postdata.input->items[i] != NULL) {
+                        printf("%s->%s\n", postdata.input->items[i]->key, postdata.input->items[i]->value);
+                    }
+                }
+
+            }
+
+            char* path = qmapGet(linkmap, postdata.link);
+            printf("path gotten\n");
+            if (path != NULL) {    
+                // char* file = (char*) calloc(strlen(path) + sizeof(".html") + 2, sizeof(char));
+                // //strcpy(file, ".");
+                // strcpy(file, path);
+                // strcat(file, ".html");
+
+                //now check this file exists.
+                if (access(path, F_OK) == 0) {
+                    printf("sending %s...\n", path);
+                    if (!sendHTML(path, clientfd, vars)) {
+                        sendError(clientfd, ERROR_404); //change the error
+                    }
+                    else printf("HTML send\n");
+                }
+                else { //send an error eventually
+                    printf("error sending %s\n", path);
+                } 
+                free(postdata.link);
+            }
+            else {
+                printf("no path\n");
+                sendError(clientfd, ERROR_404);
+            }
+            //we just have to concat .html to render it.
+
+            //getdata stores a link. we have to map this link to our server path
+            //sendRediret(postdata.link, clientfd);
+            //printf("send REDIRECT\n");
+            
+            // if (postdata.input) {
+            //     printf("key value pairs:\n");
+            //     for (int i = 0; i < postdata.input->capacity; i++) {
+            //         if (postdata.input->items[i] != NULL) {
+            //             printf("%s->%s\n", postdata.input->items[i]->key, postdata.input->items[i]->value);
+            //         }
+            //     }
+
+            //     qmapFree(postdata.input);
+            // }
+
+            qmapFree(vars);
 
         }
 

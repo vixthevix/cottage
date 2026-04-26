@@ -1,0 +1,208 @@
+/*
+This will be code for turning a boolean expression in string form, and evaluating it.
+It will first convert into RPN (kinda), then evaluate the RPN easily.
+When a TRUE or FALSE is created, it will be interpreted as a 1 or 0 respectively. this is because im lazy.
+
+Also, no variables, only numbers. 
+
+When reimplented in C framework, will be able to take in variables using qmap.
+*/
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
+#include <ctype.h>
+
+void putAt(char* exp, int i, char c) {
+	if (i < 0 || i >= strlen(exp)) return;
+	
+	//shift everything up 1
+	for (int j = strlen(exp); j != i; j--) {
+		exp[j] = exp[j - 1];
+	}
+	exp[i] = c;
+
+}
+
+void delAt(char* exp, int i) {
+	if (i < 0 || i >= strlen(exp)) return;
+	
+	//shift everything up 1
+	int n = strlen(exp);
+	for (int j = i; j < strlen(exp); j++) {
+		exp[j] = exp[j + 1];
+	}
+}
+
+bool isDoubleOperator(char c) {
+	return (c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
+}
+
+//removes all spaces, and turns double operators into single ones. also performs check.
+char* format(char* expression) {
+
+	char* new = (char*) calloc(strlen(expression) + 1, sizeof(char));
+	strcpy(new, expression);
+		
+	//first format spaces.
+	int n = strlen(new);
+	for (int i = 0; i < strlen(new);) {
+		if (new[i] == ' ') delAt(new, i);
+		else i++;
+	}
+
+	//now format and check for operators
+	n = strlen(new);
+	bool opFound = false;
+	char op = 0;
+	for (int i = 0; i < strlen(new);) {
+		char c = new[i];
+		
+		if (isDoubleOperator(c)) {
+			if (opFound) {
+				if (c != op) {
+					free(new);
+					return NULL;
+				}
+				else delAt(new, i);
+				opFound = false;
+			}
+			else {
+				opFound = true;
+				op = c;
+				i++;
+			}
+		}
+		else {
+			if (opFound) { //no corresponding double
+				free(new);
+				return NULL;
+			}
+			i++;
+			opFound = false;
+		}
+	}
+	
+	return new;
+}
+
+bool isOperator(char c) {
+	return (c == '<' || c == '>' || c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
+}
+
+
+char* transform(const char* expression) {
+	int size = strlen(expression);
+	char* result = (char*) calloc(size * 2, sizeof(char));
+	int resultIndex = 0;
+	char stack[100];
+	int top = -1;
+
+	bool numFound = false;
+
+	for (int i = size - 1; i >= 0; i--) {
+		char c = expression[i];
+
+		if (isalnum(c)) {
+			if (!numFound) result[resultIndex++] = '"';
+			
+			numFound = true;
+			result[resultIndex++] = c;
+		}
+		
+		else {
+			if (numFound) result[resultIndex++] = '"';
+			numFound = false;
+			
+			if (c == ')') stack[++top] = c;
+			
+			else if (c == '(') {
+				//until the start of the stack or a closing bracket, empty the stack into result.
+				while (top != -1 && stack[top] != ')') {
+					result[resultIndex++] = stack[top--];
+				}
+				if (top != -1) top--; //pop ')'
+
+			}
+
+			else if (isOperator(c)) {
+				//until the start of stack or a non-operator, empty the stack into result.
+				while (top != -1 && isOperator(stack[top])) {
+					result[resultIndex++] = stack[top--];
+				}
+				stack[++top] = c; //add the operator in
+			}
+			else if (c == '!') {
+				result[resultIndex++] = c;
+			}
+		}
+
+	}
+
+	//empty remaining stack into result
+	while (top != -1) result[resultIndex++] = stack[top--];
+
+	result[resultIndex] = 0;
+
+	//reverse to get the right prefix.
+	
+	return result;
+}
+
+bool evaluate(const char* expression) {
+	int stack[100] = {0};
+	int sp = -1;
+
+	int n = strlen(expression);
+	for (int i = 0; i < n; i++) {
+		char c = expression[i];
+
+		if (c == '"') {
+			int number = 0;
+			int mult = 1;
+			while ((c = expression[++i]) != '"') {
+				number += ((c - '0') * mult);
+				mult *= 10;
+			}
+			stack[++sp] = number;
+		}
+		else if (c == '!') {
+			stack[sp] = !stack[sp];
+		}
+		else if (isOperator(c)) {
+			//must have at least two numbers in here
+			if (sp < 1) return false;
+			int a = stack[sp--];
+			int b = stack[sp--];
+			
+			switch (c) {
+				case '<': stack[++sp] = (a < b); break;
+				case '>': stack[++sp] = (a > b); break;
+				case '&': stack[++sp] = (a && b); break;
+				case '|': stack[++sp] = (a || b); break;
+				case '=': stack[++sp] = (a == b); break;
+				case '^': stack[++sp] = (a != b); break;
+			}
+			
+		}
+	}
+
+	if (sp > 0) return false;
+	
+	return stack[0];
+}
+
+int main() {
+	//printf("%s\n", format(" (5 <4                  )&&  (    3   <  2    )"));
+	//char* x = format("!(!(a<b)||((x==y)&&(c>d)))");
+	//if (x) printf("%s\n", x);
+	//else printf("oh no\n");
+	//printf("%s\n", transform("(544<4)&(3<2)"));
+	//printf("%s\n", transform("!(!(a<b)|((x=y)&(c>d)))"));
+	//printf("%s\n", transform("!((a|b)=!(x<y))"));
+
+	printf("%i\n", evaluate(transform(format("!!5!"))));
+
+	//printf("%s\n", transform("(5<4)&(3<2)"));
+}

@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 
 //needed for sockets
 #include <sys/types.h>
@@ -190,10 +191,13 @@ unsigned int qhash(queryPair* pair) {
     int c;
     
     char* key = pair->key;
+    printf("key is %s\n", key);
 
-    while (c = *key++) //for each character in the string
+    printf("begin hash\n");
+    while ((c = *key++)) //for each character in the string
         hash = ((hash << 5) + hash) + c; //hash * 33 + c
 
+    printf("hash got: %u\n", hash);
     return hash;
 }
 
@@ -202,6 +206,8 @@ unsigned int qhash(queryPair* pair) {
 
 
 int qmapInsert(queryMap* qmap, char* key, char* value) {
+    if (!key || !value || !qmap) return 1;
+    
     const unsigned int load = qmap->count * 100 / qmap->capacity;
     if (load > 60) qmap = qmapResize(qmap);
     
@@ -248,13 +254,18 @@ int qmapInsert(queryMap* qmap, char* key, char* value) {
 
 
 char* qmapGet(queryMap* qmap, char* key) {
-    //queryPair* newpair = queryInit(key, value);
-    unsigned int initpos = qhash(&(queryPair){.key = key, .value = NULL}) % qmap->capacity;
+    //printf("qmap get starting\n");
+    //if (key) printf("key valid\n");
+
+    queryPair temp = {.key = key, .value = NULL};
+    unsigned int hashed = qhash(&temp);
+    unsigned int initpos = hashed % qmap->capacity;
+    
     //printf("initpos get\n");
     unsigned int index;
     queryPair* curpair;
     int curpd = 0;
-
+    
     for (unsigned int i = 0; i < qmap->capacity; i++) {
         //printf("loop start\n");
         index = (initpos + i) % qmap->capacity;
@@ -269,6 +280,156 @@ char* qmapGet(queryMap* qmap, char* key) {
     }
 
     return NULL;
+}
+
+//combining two queryMaps
+queryMap* qmapCombine(queryMap* intruder, queryMap* home) {
+
+    //we create the new map first, then populate with the right data if only intruder or home is valid. this is to ensure unique pointers
+    queryMap* new = qmapInit();
+
+    if (!home && !intruder) {
+        qmapFree(new);
+        return NULL;
+    }
+    
+    if (!intruder && home) {
+        for (int i = 0; i < home->capacity; i++) {
+            queryPair* cur = home->items[i];
+            if (!cur) continue;
+            //will create new strings, so two new pointers. no worry of deletion
+            qmapInsert(new, cur->key, cur->value);
+        }
+        return new;
+    }
+    if (!home && intruder) {
+        for (int i = 0; i < intruder->capacity; i++) {
+            queryPair* cur = intruder->items[i];
+            if (!cur) continue;
+
+            qmapInsert(new, cur->key, cur->value);
+        }
+        return new;
+    }
+
+    //qmapInsert works off existing pointers, so we have to make new ones here.
+    //we insert the intruder into home
+    //using a new qmap
+
+    //queryMap* new = qmapInit();
+
+    //first we populate new with values from home
+    for (int i = 0; i < home->capacity; i++) {
+        queryPair* cur = home->items[i];
+        if (!cur) continue;
+        //will create new strings, so two new pointers. no worry of deletion
+        qmapInsert(new, cur->key, cur->value);
+    }
+
+    //then we insert the intruder into home
+    for (int i = 0; i < intruder->capacity; i++) {
+        queryPair* cur = intruder->items[i];
+        if (!cur) continue;
+
+        qmapInsert(new, cur->key, cur->value);
+    }
+
+    //finally we free both original maps
+    //or do we? for now no lets give the programmer some control here
+
+    return new;
+}
+
+//post consists of a link, maybe some variables
+//and most importantly, the input variables
+typedef struct postSplit {
+    char* link;
+    unsigned int linkSize;
+    //no normal variables for now
+
+    queryMap* input;
+} postSplit;
+
+postSplit splitPOST(clientreq request) {
+    postSplit target = {.link = NULL, .linkSize = 0, .input = NULL};
+    if (request.type != POST || request.data == NULL) return target;
+
+    //our data starts at the link, so we will copy this first
+    char* buffer = (char*) calloc(request.dataSize, sizeof(char));
+    int i = 0;
+    for (; i < request.dataSize && request.data[i] != ' '; i++) {
+        buffer[i] = request.data[i];
+    }
+    target.linkSize = strlen(buffer) + 1;
+    buffer = (char*) realloc(buffer, (target.linkSize * sizeof(char)));
+    target.link = buffer;
+
+    //now we have to find our carriage return, and put each variable into input.
+
+    char* mainData = strstr(request.data, "\r\n\r\n");
+    if (mainData) { //if exists
+        mainData += 4; //we move past carriage returns
+        //we can now safely start our input reading
+        //variable name ends at =, variable value ends at &
+        //we stop all reading once we reached \0
+        target.input = qmapInit();
+        const int initSize = 256;
+        char* curVal = (char*) calloc(initSize, sizeof(char));
+        char* curKey = (char*) calloc(initSize, sizeof(char));
+        int curIndex = 0;
+        bool isCurVal = false;
+        for (i = 0; i < strlen(mainData); i++) {
+            if (mainData[i] == '=') {
+                if (!isCurVal) {
+                    curIndex = 0;
+                    isCurVal = true;
+                }
+                else { //bad query
+                    qmapFree(target.input);
+                    target.input = NULL;
+                    return target;
+                }
+            }
+            else if (mainData[i] == '&') {
+                if (curVal) {
+                    //we have our data, so now we insert
+                    qmapInsert(target.input, curKey, curVal);
+                    curIndex = 0;
+                    isCurVal = false;
+                    memset(curVal, 0, strlen(curVal));
+                    memset(curKey, 0, strlen(curKey));
+                }
+                else { //bad query
+                    qmapFree(target.input);
+                    target.input = NULL;
+                    return target;
+                }
+            }
+            else {
+                if (isCurVal) {
+                    curVal[curIndex++] = mainData[i];
+                }
+                else {
+                    curKey[curIndex++] = mainData[i];
+                }
+            }
+        }
+
+        //check if we were reading a value, and if we have a key.
+        //if so, assign it
+        if (isCurVal && strlen(curKey) != 0) {
+            qmapInsert(target.input, curKey, curVal);
+            curIndex = 0;
+            isCurVal = false;
+            memset(curVal, 0, strlen(curVal));
+            memset(curKey, 0, strlen(curKey));
+        }
+        free(curVal);
+        free(curKey);
+        
+    }
+
+    return target;
 }
 
 typedef struct getSplit {
@@ -453,16 +614,269 @@ clientreq getClientRequest(int client) {
         request.data = (char*) realloc(request.data, (getReadIndex + 1) * sizeof(char));
         request.dataSize = getReadIndex + 1;
     }
+    else if (strcmp(rqtype, "POST") == 0) {
+        request.type = POST;
+
+        unsigned int initSize = 1024;
+        unsigned int getReadIndex = 0; //index to follow
+        request.data = (char*) calloc(initSize, sizeof(char));
+        
+        //our bindex is currently on the space, so we bump it up once
+        bindex++;
+
+        while (buffer[bindex] != 0) {
+            request.data[getReadIndex] = buffer[bindex];
+            bindex++;
+            getReadIndex++;
+
+            //check the index to update buffer if needed.
+            if (getReadIndex == initSize - 1) {
+                initSize <<= 1; //double it
+                request.data = (char*) realloc(request.data, initSize * sizeof(char));
+            }
+        }
+
+        //finally, realloc the data back to a smaller size
+        request.data = (char*) realloc(request.data, (getReadIndex + 1) * sizeof(char));
+        request.dataSize = getReadIndex + 1;
+        
+    }  
     
     return request;
 }
 
+//following functions are for string boolean calculations
+
+void BC_putAt(char* exp, int i, char c) {
+	if (i < 0) return;
+	
+	//shift everything up 1
+	for (int j = strlen(exp); j != i; j--) {
+		exp[j] = exp[j - 1];
+	}
+	exp[i] = c;
+
+}
+
+void BC_delAt(char* exp, int i) {
+	if (i < 0 || i >= strlen(exp)) return;
+	
+	//shift everything up 1
+	int n = strlen(exp);
+	for (int j = i; j < strlen(exp); j++) {
+		exp[j] = exp[j + 1];
+	}
+}
+
+bool BC_isDoubleOperator(char c) {
+	return (c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
+}
+
+//removes all spaces, and turns double operators into single ones. also performs check.
+char* BC_format(char* expression) {
+
+	char* new = (char*) calloc(strlen(expression) + 1, sizeof(char));
+	strcpy(new, expression);
+		
+	//first format spaces.
+	int n = strlen(new);
+	for (int i = 0; i < strlen(new);) {
+		if (new[i] == ' ') BC_delAt(new, i);
+		else i++;
+	}
+
+	//now format and check for operators
+	n = strlen(new);
+	bool opFound = false;
+	char op = 0;
+	for (int i = 0; i < strlen(new);) {
+		char c = new[i];
+		
+		if (BC_isDoubleOperator(c)) {
+			if (opFound) {
+				if (c != op) {
+					free(new);
+					return NULL;
+				}
+				else BC_delAt(new, i);
+				opFound = false;
+			}
+			else {
+				opFound = true;
+				op = c;
+				i++;
+			}
+		}
+		else {
+			if (opFound) { //no corresponding double
+				free(new);
+				return NULL;
+			}
+			i++;
+			opFound = false;
+		}
+	}
+	
+	return new;
+}
+
+bool BC_isOperator(char c) {
+	return (c == '<' || c == '>' || c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
+}
 
 
-//lets make a function for sending over an html file
-int sendHTML(const char* filepath, int client, queryMap* variables) {
+char* BC_transform(const char* expression) {
+	int size = strlen(expression);
+	char* result = (char*) calloc(size * 2, sizeof(char));
+	int resultIndex = 0;
+	char stack[100];
+	int top = -1;
+
+	bool numFound = false;
+
+	for (int i = size - 1; i >= 0; i--) {
+		char c = expression[i];
+
+		if (isalnum(c)) {
+			if (!numFound) result[resultIndex++] = '"';
+			
+			numFound = true;
+			result[resultIndex++] = c;
+		}
+		
+		else {
+			if (numFound) result[resultIndex++] = '"';
+			numFound = false;
+			
+			if (c == ')') stack[++top] = c;
+			
+			else if (c == '(') {
+				//until the start of the stack or a closing bracket, empty the stack into result.
+				while (top != -1 && stack[top] != ')') {
+					result[resultIndex++] = stack[top--];
+				}
+				if (top != -1) top--; //pop ')'
+
+			}
+
+			else if (BC_isOperator(c)) {
+				//until the start of stack or a non-operator, empty the stack into result.
+				while (top != -1 && BC_isOperator(stack[top])) {
+					result[resultIndex++] = stack[top--];
+				}
+				stack[++top] = c; //add the operator in
+			}
+			else if (c == '!') {
+				result[resultIndex++] = c;
+			}
+		}
+
+	}
+
+	//empty remaining stack into result
+	while (top != -1) result[resultIndex++] = stack[top--];
+
+	result[resultIndex] = 0;
+
+	//reverse to get the right prefix.
+	
+	return result;
+}
+
+//for now just checks for unsigned integer. later make checks for floats and negatives
+bool BC_isNum(char* exp) {
+    for (int i = 0; i < strlen(exp); i++) {
+        int digit = exp[i] - '0';
+        if (0 <= digit && digit <= 9) continue;
+        else return false;
+    }
+    return true;
+
+}
+
+int BC_StrToNum(char* exp) {
+    int number = 0;
+    int mult = 1;
+    for (int i = 0; i < strlen(exp); i++) {
+        char c = exp[i];
+		number += ((c - '0') * mult);
+		mult *= 10;
+    }
+    return number;
+
+}
+
+/*
+things to add.
+negative number checking
+floating point number checking
+string comparison (includes single character strings)
+*/
+
+bool BC_evaluate(const char* expression, queryMap* variables) {
+	int stack[100] = {0};
+	int sp = -1;
+
+	int n = strlen(expression);
+	for (int i = 0; i < n; i++) {
+		char c = expression[i];
+
+		if (c == '"') {
+            // first, check if its a number. if so, direct translate into int.
+            // otherwise, check the variables. if match, try to translate.
+            // if this fails, must mean that variable is not an number, so we return false;
+			int number = 0;
+			int mult = 1;
+            char value[100] = {0};
+			
+            while ((c = expression[++i]) != '"'){
+                BC_putAt(value, 0, c);
+                printf("c is %c\n", c);
+            } 
+            printf("expression is '%s'\n", value);
+            if (BC_isNum(value)) number = BC_StrToNum(value);
+			else { //must be a variable
+                char* varVal = qmapGet(variables, value);
+                if (BC_isNum(varVal)) number = BC_StrToNum(varVal);
+                else return 0; //the variable is invalid for analysing, so we simply make the statement null.
+            }
+
+            stack[++sp] = number;
+		}
+		else if (c == '!') {
+			stack[sp] = !stack[sp];
+		}
+		else if (BC_isOperator(c)) {
+			//must have at least two numbers in here
+			if (sp < 1) return false;
+			int a = stack[sp--];
+			int b = stack[sp--];
+            printf("a is %i, b is %i\n", a, b);
+			
+			switch (c) {
+				case '<': stack[++sp] = (a < b); break;
+				case '>': stack[++sp] = (a > b); break;
+				case '&': stack[++sp] = (a && b); break;
+				case '|': stack[++sp] = (a || b); break;
+				case '=': stack[++sp] = (a == b); break;
+				case '^': stack[++sp] = (a != b); break;
+			}
+			
+		}
+	}
+
+	if (sp > 0) return false;
+	
+	return stack[0];
+}
+
+//recursive function for opening a file
+//need it to open a file within a file
+//just copy paste stuff over
+char* openHTML(const char* filepath, queryMap* variables) {
     //first, prepare the html
     FILE* file = fopen(filepath, "r");
+    if (!file) return NULL;
 
     //get the size of the file and fread it into a buffer
 
@@ -470,46 +884,377 @@ int sendHTML(const char* filepath, int client, queryMap* variables) {
     unsigned int size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-
-    //now send the HTTP response, it must be in a specific format
-    //first, the header
-    const char* header = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n";
-    
-    send(client, header, strlen(header), 0);
-
     //we will try write to data using a for loop, to keep track of our frontend shenanigans
     char* data = (char*) calloc(size + 1, sizeof(char));
     int c = 0, i = 0;
 
     //use a stack to keep track of brackets
-    char bracketStack[50] = {0};
+    //char bracketStack[50] = {0};
     int bsi = 0;
+    bool inCheck = false;
+    bool reachedColon = false;
+
+    //use for inserting a file
+    bool insertVars = false;
+    //with the input parameters, you have to define name and value
+    //this is your key and value.
+    //if value is not a number, will check the current variables
+    //if not found there, do not put in the new variables
+    //otherwise, yes.
+
+    queryMap* newVariables = qmapInit();
+
+    //use a diamond bracket count to know when to read curlies
+    int diamondCount = 0;
+
+    //we need to use booleans to keep track of {}, mainly due to the IF statements, and nested IF statements.
+    //use an if count to know which nest we are in
+    int ifCount = 0;
+    bool ifValid = true;
+    int ifInvalidState = 0;
+
+    int mode = -1;
+    const int
+    commandSize = 50,
+    offloadSize = 100;
+    char* command = (char*) calloc(commandSize, sizeof(char));
+    char* offload = (char*) calloc(offloadSize, sizeof(char));
+    int ci = 0, oi = 0;
+
 
     while ((c = fgetc(file)) != EOF) {
-        if (c == '{') {
-            bracketStack[bsi] = c;
+        if (inCheck) {
+            if (c != ':' && c != '}') {
+                command[ci++] = c;
+            }
+            else {
+                ci = 0;
+                reachedColon = true;
+                inCheck = false;
+            }
+        }
+        else if (reachedColon) {
+            reachedColon = false;
+            //check the command
+            printf("command is %s\n", command);
+
+            
+            if (!ifValid) mode = -1;
+            else if (!strcmp(command, "VAR")) {
+                mode = 0;
+                goto mode0;
+            }
+            else if (!strcmp(command, "INSERT")) {
+                mode = 1;
+                goto mode1;
+            }
+            else if (!strcmp(command, "IF")) {
+                ifCount++;
+                mode = 2;
+                goto mode2;
+            }
+            else if (!strcmp(command, "ENDIF")) {
+                if (ifCount == ifInvalidState) ifValid = true;
+                ifCount--;
+                mode = -1;
+                //mode = 2;
+            }
+            //add more cases here
+            else {
+                mode = -1;
+                goto failure;
+            }
+        }
+        else if (mode == 0) {
+            mode0:
+            //read the variable
+            if (c != '}') {
+                offload[oi++] = c;
+            }
+            else {
+                printf("offload is %s\n", offload);
+                oi = 0;
+                //find in variables
+                //first check variables is initialised
+                if (!variables) goto failure;
+                //printf("offload is %s\n", offload);
+                char* value = qmapGet(variables, offload);
+                if (value) {
+                    //write into data
+                    for (int j = 0; j < strlen(value); j++, i++) {
+                        data[i] = value[j];
+                    }
+                }
+                else {
+                    //printf("no value found\n");
+                    goto failure;
+                }
+                mode = -1;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+            }
+        }
+        else if (mode == 1) {
+            mode1:
+            //printf("yeah\n");
+            //we need to read the filepath, and the variables.
+            if (c != '}') {
+                offload[oi++] = c;
+            }
+            else {
+                printf("offload is %s\n", offload);
+                oi = 0;
+                //first get the link
+                const int linkSize = offloadSize;
+                char* link = (char*) calloc(linkSize, sizeof(char));
+                int j = 0;
+                for (j = 0; offload[j] != 0 && offload[j] != ';'; j++) {
+                    link[j] = offload[j];
+                    //printf("current link is %s\n", link);
+                }
+                printf("link is %s\n", link);
+                if (offload[j] == 0) { //no input variables
+                    printf("im going\n");
+                    //just read the data
+                    goto readINPUT;
+                }
+                //here we put stuff into newVariables
+                if (!newVariables) goto readINPUT;
+
+                //we now have to put things inside the newVariables.
+                //loop through the remainder of offload and find variables
+                char 
+                curVar[100] = {0},
+                curValue[100] = {0};
+                int curVarIndex = 0, curValueIndex = 0;
+                bool isVar = true;
+
+                //keep track of quotes
+                bool inQuotes = false;
+                
+                j++;
+                for (; offload[j] != 0; j++) {
+                    if (offload[j] == '"') {
+                        inQuotes = !inQuotes;
+                    }
+                    else if (offload[j] == '=' && isVar) {
+                        isVar = false;
+                        continue;
+                    }
+                    else if (offload[j] == ',' && !isVar && !inQuotes) {
+                        isVar = true;
+
+                        //we have a value and pair
+                        if (curVar && curValue) {
+                            //first, check if its a number
+                            //a string, or a variable
+                            if (BC_isNum(curValue)) {
+                                qmapInsert(newVariables, curVar, curValue);
+                            }
+                            else if (curValue[0] == '"' && curValue[strlen(curValue) - 1] == '"') {
+                                //remove the quote marks
+                                BC_delAt(curValue, 0);
+                                BC_delAt(curValue, strlen(curValue) - 1);
+                                qmapInsert(newVariables, curVar, curValue);
+                            }
+                            else { //mut be variable
+                                char* x = qmapGet(variables, curValue);
+                                if (x) {
+                                    qmapInsert(newVariables, curVar, x);
+                                }
+                                else {
+                                    //do nothing, because nothing can be done
+                                }
+                            }
+                        }
+
+                        //reset both
+                        memset(curVar, 0, 100);
+                        curVarIndex = 0;
+                        memset(curValue, 0, 100);
+                        curValueIndex = 0;
+                        continue;
+                    }
+
+                    if (isVar) {
+                        curVar[curVarIndex++] = offload[j];
+                    }
+                    else {
+                        curValue[curValueIndex++] = offload[j];
+                    }
+                }
+                //put in anything left
+                if (!isVar) {
+                    if (curVar && curValue) {
+                        //first, check if its a number
+                        //a string, or a variable
+                        if (BC_isNum(curValue)) {
+                            qmapInsert(newVariables, curVar, curValue);
+                        }
+                        else if (curValue[0] == '"' && curValue[strlen(curValue) - 1] == '"') {
+                            //remove the quote marks
+                            BC_delAt(curValue, 0);
+                            BC_delAt(curValue, strlen(curValue) - 1);
+                            qmapInsert(newVariables, curVar, curValue);
+                        }
+                        else { //mut be variable
+                            char* x = qmapGet(variables, curValue);
+                            if (x) {
+                                qmapInsert(newVariables, curVar, x);
+                            }
+                            else {
+                                //do nothing, because nothing can be done
+                            }
+                        }
+                    }
+                }
+
+                readINPUT:
+                char* dataINPUT = openHTML(link, newVariables);
+                free(link);
+                //copy over the new data
+                if (dataINPUT) {
+                    printf("input data got\n");
+                    printf("%s\n", dataINPUT);
+                    //we need to reallocate our data to take into account
+                    //increases in size
+                    data = (char*) realloc(data, size + (strlen(dataINPUT) << 1));
+                    for (j = 0; j < strlen(dataINPUT); j++, i++) {
+                        data[i] = dataINPUT[j];
+                    }
+                    printf("dataINPUT read done\n");
+                }
+                else {
+                    printf("input data not got\n");
+                    goto failure;
+                } 
+                free(dataINPUT);
+                mode = -1;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+
+            }
+
+        }
+        else if (mode == 2) {
+            mode2:
+            if (c != '}') offload[oi++] = c;
+            else {
+                oi = 0;
+                //we now have a boolean expression. lets evaluate it.
+                if (offload) {
+                    char* formatted = BC_format(offload);
+                    char* transformed = BC_transform(formatted);
+                    int result = BC_evaluate(transformed, variables);
+                    printf("formatted is %s, transformed is %s, result is %i\n", formatted, transformed, result);
+                    
+                    if (result) {
+                        ifValid = true;
+                    }
+                    else {
+                        ifValid = false;
+                        //we have to skip until we have reached the next 
+                        ifInvalidState = ifCount;
+                    }
+                }
+                mode = -1;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+            }
+        }
+        
+        else if (c == '{' && !diamondCount) {
             bsi++;
             //the simplest way to do this is using a COMMAND:VARIABLE(S) system.
             //some example commands can be VAR (get a variable value) IF (conditional html) and INSERT (putting in other HTML files)
             //INSERT could potentially take in parameters to transfer variables over.
             //on that note, having a STORE (creating a new variable and putting it in the current variable map) could be nice.
+            inCheck = true;
+            
         }
-        else if (c == '}') {
-            bracketStack[bsi] = 0;
-            bsi--;
-        }
+        // else if (c == '}') {
+        //     bsi--;
+        //     inCheck = false;
+        // }
         else {
-            data[i] = (char)c;
-            i++;
+            if (ifValid) {
+                if (c == '<') diamondCount++;
+                else if (c == '>') diamondCount--;
+                data[i] = (char)c;
+                i++;
+            }
         }
     }
-    data[i] = 0;
-
-    send(client, data, strlen(data), 0);
+    goto success;
     
-
+    failure:
+    printf("failed\n");
     free(data);
+    data = NULL;
+
+    success:
     fclose(file);
+    free(offload);
+    free(command);
+    qmapFree(newVariables);
+    if (data) {
+        //set safety null terminator
+        data[i] = 0;
+        return data;
+    }
+    else {
+        return NULL;
+    }
+    
+}
+
+
+//lets make a function for sending over an html file
+int sendHTML(const char* filepath, int client, queryMap* variables) {
+    //first, prepare the html
+
+    char* data = openHTML(filepath, variables);
+
+    if (data) goto success;
+    
+    failure:
+    printf("failed\n");
+    data = NULL;
+
+    success:
+ 
+    if (data) {
+        //now send the HTTP response, it must be in a specific format
+        //first, the header
+        const char* header = 
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+        send(client, header, strlen(header), 0);
+
+
+        //then the data
+        send(client, data, strlen(data), 0);
+
+
+        free(data);
+        return 1;
+    }
+    else return 0;
+    
+}
+
+int sendRediret(const char* path, int client) {
+    char response[512];
+    int len = sprintf(response,
+        "HTTP/1.1 303 See Other\r\n"
+        "Location: %s\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "\r\n",
+        path);
+    send(client, response, len, 0);
     return 1;
 }
 

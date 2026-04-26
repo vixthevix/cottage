@@ -14,7 +14,32 @@
     we will do this using square brackets.
     -->
     <p>
-        x is set to {var:x}
+        <!-- comments are still being detected as actual code, we have to ignore them
+        we need a way to check WHEN to check for brackets -->
+        x is set to {VAR:x}
+        <br>
+         fart is {VAR:fart}
+
+         <!-- Probably have a qmap for component name to location -->
+         {INSERT:templates/components/greeting.html}
+         {INSERT:templates/components/greeting.html}
+
+         {INSERT:templates/cool.html}
+         {INSERT:templates/components/displayName.html;name="Victor",age=20,greeting="What is up guys, "}
+         {INSERT:templates/components/displayName.html;name=name,age=x,greeting=greeting}
+
+         <!-- yeah so dont do this -->
+         <!-- {INSERT:templates/main.html} -->
+          {IF:(x==67)}
+            x really is 67
+            <br>
+            {IF:(y==2)}
+                y really does exist
+
+            {ENDIF}
+
+          {ENDIF}
+
     </p>
 
 </html>
