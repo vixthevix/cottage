@@ -812,9 +812,11 @@ int BC_StrToNum(char* exp) {
     int mult = 1;
     for (int i = 0; i < strlen(exp); i++) {
         char c = exp[i];
-		number += ((c - '0') * mult);
-		mult *= 10;
+        number += ((c - '0') * mult);
+        number *= 10;
+        printf("strToNum i is %i\n", i);
     }
+    number /= 10;
     return number;
 
 }
@@ -847,8 +849,11 @@ bool BC_evaluate(const char* expression, queryMap* variables) {
                 printf("c is %c\n", c);
             } 
             printf("expression is '%s'\n", value);
-            if (BC_isNum(value)) number = BC_StrToNum(value);
-			else { //must be a variable
+            if (BC_isNum(value)) {
+                number = BC_StrToNum(value);
+                printf("expression -> number becomes %i\n", number);
+            }	
+            else { //must be a variable
                 char* varVal = qmapGet(variables, value);
                 if (BC_isNum(varVal)) number = BC_StrToNum(varVal);
                 else return 0; //the variable is invalid for analysing, so we simply make the statement null.
@@ -965,6 +970,7 @@ char* openHTML(const char* filepath, queryMap* variables) {
     int ifCount = 0;
     bool ifValid = true;
     int ifInvalidState = 0;
+    int ifValidState = 0;
 
     int mode = -1;
     const int
@@ -991,8 +997,45 @@ char* openHTML(const char* filepath, queryMap* variables) {
             //check the command
             printf("command is %s\n", command);
 
+            mode = -1;
             
-            if (!ifValid) mode = -1;
+            //lets consider else here
+            if (!strcmp(command, "ELSE")) {
+                printf("reached else, ifCount is %i, ifInvalidState is %i, ifValid is %i\n", ifCount, ifInvalidState, ifValid);
+                //we have to be in the same ifInvalidState, and ifValid must be false
+                if (ifCount == ifInvalidState) {
+                    if (!ifValid) {
+                        printf("else happening\n");
+                        ifValid = true;
+                    }
+                }
+                //if we are in a different state, then we know that the if passed
+                //so the else fails.
+                else ifValid = false;
+                finishedEmbedRead = true;
+                oi = 0;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+            }
+            else if (!strcmp(command, "ENDIF")) {                
+                if (ifCount == ifInvalidState) ifValid = true;
+                ifCount--;
+                mode = -1;
+                finishedEmbedRead = true;
+                oi = 0;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+                //mode = 2;
+            }
+            else if (!strcmp(command, "IF")) {
+                ifCount++;
+                //assuming that we are in a nested if
+                if (ifValid) {
+                    mode = 2;
+                    goto mode2;
+                }
+            }
+            else if (!ifValid) mode = -1;
             else if (!strcmp(command, "VAR")) {
                 mode = 0;
                 goto mode0;
@@ -1000,17 +1043,6 @@ char* openHTML(const char* filepath, queryMap* variables) {
             else if (!strcmp(command, "INSERT")) {
                 mode = 1;
                 goto mode1;
-            }
-            else if (!strcmp(command, "IF")) {
-                ifCount++;
-                mode = 2;
-                goto mode2;
-            }
-            else if (!strcmp(command, "ENDIF")) {
-                if (ifCount == ifInvalidState) ifValid = true;
-                ifCount--;
-                mode = -1;
-                //mode = 2;
             }
             //add more cases here
             else {
@@ -1206,12 +1238,16 @@ char* openHTML(const char* filepath, queryMap* variables) {
                     
                     if (result) {
                         ifValid = true;
+                        ifValidState = ifCount;
                     }
                     else {
                         ifValid = false;
                         //we have to skip until we have reached the next 
                         ifInvalidState = ifCount;
                     }
+                    
+                    free(formatted);
+                    free(transformed);
                 }
                 mode = -1;
                 memset(command, 0, commandSize * sizeof(char));

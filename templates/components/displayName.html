@@ -2,4 +2,18 @@
     {{VAR:greeting}} I'm {{VAR:name}}! It's great to meet you!
     <br>
     I am {{VAR:age}} years old.
+    <br>
+    {{IF:(age>18)}}
+        I can work :)
+
+        {{IF:(age>60)}}
+            I'm hella unc damn
+        {{ELSE}}
+            I'm still young, {{VAR:age}} is young    
+        {{ENDIF}}
+
+
+    {{ELSE}}
+        I can't work :(
+    {{ENDIF}}
 </div>
