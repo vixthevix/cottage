@@ -36,6 +36,7 @@ int main(void) {
     qmapInsert(linkmap, "/main", "./templates/main.html");
     qmapInsert(linkmap, "/cool", "./templates/cool.html");
     qmapInsert(linkmap, "/input", "./templates/input.html");
+    qmapInsert(linkmap, "/main.css", "./styles/main.css");
 
     while (true) {
 
@@ -70,33 +71,28 @@ int main(void) {
 
             qmapInsert(vars, "fart", "ass");
 
-            //getdata stores a link. we have to map this link to our server path
-            char* path = qmapGet(linkmap, getdata.link);
-            printf("path gotten\n");
-            if (path != NULL) {    
-                // char* file = (char*) calloc(strlen(path) + sizeof(".html") + 2, sizeof(char));
-                // //strcpy(file, ".");
-                // strcpy(file, path);
-                // strcat(file, ".html");
+            //we get a path from the linkmap. if sending this path doesnt work, we just ask for the link
+            //this is very dangerous as we essentially open up our whole folder here.
+            //we will fix this security issue later
+            //like probably will require string cleaning and blocking paths
+            //idk
 
-                //now check this file exists.
-                if (access(path, F_OK) == 0) {
-                    printf("sending %s...\n", path);
-                    if (!sendHTML(path, clientfd, vars)) {
-                        sendError(clientfd, ERROR_404); //change the error
-                    }
-                    else printf("HTML send\n");
+            //we need to add the . to the front of getdata.link
+
+
+            char* path = qmapGet(linkmap, getdata.link);
+            printf("path is %s\n", path);
+            if (!sendFile(path, clientfd, vars)) {
+                char* rawLink = (char*) calloc(strlen(getdata.link) + 10, sizeof(char));
+                for (int i = 1, j = 0; j < strlen(getdata.link); i++, j++) {
+                    rawLink[i] = getdata.link[j];
                 }
-                else { //send an error eventually
-                    printf("error sending %s\n", path);
-                } 
-                free(getdata.link);
+                rawLink[0] = '.';
+                if (!sendFile(rawLink, clientfd, vars)) sendError(clientfd, ERROR_404);
+                free(rawLink);
             }
-            else {
-                printf("no path\n");
-                sendError(clientfd, ERROR_404);
-            }
-            //we just have to concat .html to render it.
+            
+            free(getdata.link);
             
             //also, print every key value pair in query
             if (getdata.variables) {

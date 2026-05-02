@@ -883,6 +883,42 @@ bool BC_evaluate(const char* expression, queryMap* variables) {
 	return stack[0];
 }
 
+bool sendNormal(char* filepath, char* type, int client) {
+
+    char header[128] = {0};
+    char* headerptr = header;
+    sprintf(headerptr, 
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: %s\r\n"
+    "Connection: close\r\n\r\n", type);
+
+    send(client, header, strlen(header), 0);
+
+    //read the binary first
+    FILE* file = fopen(filepath, "rb");
+    if (!file) return false;
+
+    //get the size
+    fseek(file, 0, SEEK_END);
+    const unsigned long size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    //read into buffer, then send
+    char* buffer = (char*) calloc(size, sizeof(char));
+    if (!buffer) {
+        fclose(file);
+        return false;
+    }
+    fread(buffer, sizeof(char), size, file);
+
+    send(client, buffer, size, 0);
+
+    free(buffer);
+    fclose(file);
+
+    return true;
+}
+
 //recursive function for opening a file
 //need it to open a file within a file
 //just copy paste stuff over
@@ -1281,6 +1317,26 @@ int sendHTML(const char* filepath, int client, queryMap* variables) {
     }
     else return 0;
     
+}
+
+//we need a function to get a requested resource
+//this can be html, an image, js, whatever
+//to do this, we check the file endings
+bool sendFile(char* filepath, int client, queryMap* vars) {
+    //first, check if this file actually exists
+    if (access(filepath, F_OK) == 0) {
+        //second, read the file ending
+        if (strstr(filepath, ".png")) return sendNormal(filepath, "image/png", client);
+        if (strstr(filepath, ".gif")) return sendNormal(filepath, "image/gif", client);
+        if (strstr(filepath, ".jpg") || strstr(filepath, ".jpeg")) return sendNormal(filepath, "image/jpeg", client);
+        if (strstr(filepath, ".css")) return sendNormal(filepath, "text/css", client);
+        if (strstr(filepath, ".js")) return sendNormal(filepath, "text/javascript", client);
+        if (strstr(filepath, ".html")) return sendHTML(filepath, client, vars);
+        return sendNormal(filepath, "text/plain", client);
+    }
+    else {
+        return false;
+    }
 }
 
 int sendRediret(const char* path, int client) {
