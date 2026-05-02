@@ -69,6 +69,19 @@ int getMainFD(const char* address, const char* port, bool passive) {
 //GET, PUT, POST, DELETE, PATCH, HEAD, OPTIONS, TRACE, CONNECT
 //we will develop a meaningful response to each of these
 
+/*
+To summarise what they do
+GET -> returns a resource specified by the link
+PUT -> updates a resource specified by the link
+POST -> creates a new resource with the link name
+DELETE -> deletes a resource specified by the link
+PATCH ->
+HEAD ->
+OPTIONS ->
+TRACE ->
+CONNECT ->
+*/
+
 #define ERROR -1
 #define GET 0
 #define PUT 1
@@ -893,6 +906,10 @@ char* openHTML(const char* filepath, queryMap* variables) {
     int bsi = 0;
     bool inCheck = false;
     bool reachedColon = false;
+    int curlyCount = 0;
+    bool curlyCounting = false;
+
+    bool finishedEmbedRead = false;
 
     //use for inserting a file
     bool insertVars = false;
@@ -972,6 +989,7 @@ char* openHTML(const char* filepath, queryMap* variables) {
                 offload[oi++] = c;
             }
             else {
+                finishedEmbedRead = true;
                 printf("offload is %s\n", offload);
                 oi = 0;
                 //find in variables
@@ -1002,6 +1020,7 @@ char* openHTML(const char* filepath, queryMap* variables) {
                 offload[oi++] = c;
             }
             else {
+                finishedEmbedRead = true;
                 printf("offload is %s\n", offload);
                 oi = 0;
                 //first get the link
@@ -1140,6 +1159,7 @@ char* openHTML(const char* filepath, queryMap* variables) {
             mode2:
             if (c != '}') offload[oi++] = c;
             else {
+                finishedEmbedRead = true;
                 oi = 0;
                 //we now have a boolean expression. lets evaluate it.
                 if (offload) {
@@ -1163,20 +1183,38 @@ char* openHTML(const char* filepath, queryMap* variables) {
             }
         }
         
+        else if (c == '}' && finishedEmbedRead && !diamondCount) { //to ensure the final bracket is skipped
+            finishedEmbedRead = false;
+        }
+
         else if (c == '{' && !diamondCount) {
             bsi++;
             //the simplest way to do this is using a COMMAND:VARIABLE(S) system.
             //some example commands can be VAR (get a variable value) IF (conditional html) and INSERT (putting in other HTML files)
             //INSERT could potentially take in parameters to transfer variables over.
             //on that note, having a STORE (creating a new variable and putting it in the current variable map) could be nice.
-            inCheck = true;
             
+            //we must check ahead here to see if there is another curly in front
+            //we must use fgetc to see the future.
+            //if its a curly, we set inCheck and continue on.
+            //if not, we must revert c and goto data write
+
+            char future = fgetc(file);
+            // if (future == EOF) goto failure;
+            if (future == '{') {
+                inCheck = true;
+            }
+            else {
+                fseek(file, -1, SEEK_CUR);
+                goto dataWrite;
+            }
         }
         // else if (c == '}') {
         //     bsi--;
         //     inCheck = false;
         // }
         else {
+            dataWrite:
             if (ifValid) {
                 if (c == '<') diamondCount++;
                 else if (c == '>') diamondCount--;
