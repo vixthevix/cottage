@@ -967,10 +967,17 @@ char* openHTML(const char* filepath, queryMap* variables) {
 
     //we need to use booleans to keep track of {}, mainly due to the IF statements, and nested IF statements.
     //use an if count to know which nest we are in
+    //we also have to ensure that ELSE only appears once, after all ELSEIFs and IF
+    //we make a boolean to show this happened.
+    //If an ELSE appears before the other two, throw an error.
     int ifCount = 0;
     bool ifValid = true;
+    bool elseValid = true;
+    bool elseIfValid = true;
     int ifInvalidState = 0;
     int ifValidState = 0;
+    bool elseAppeared = false;
+    bool ifAppeared = false;
 
     int mode = -1;
     const int
@@ -1003,14 +1010,38 @@ char* openHTML(const char* filepath, queryMap* variables) {
             if (!strcmp(command, "ELSE")) {
                 printf("reached else, ifCount is %i, ifInvalidState is %i, ifValid is %i\n", ifCount, ifInvalidState, ifValid);
                 //we have to be in the same ifInvalidState, and ifValid must be false
-                if (ifCount == ifInvalidState) {
-                    if (!ifValid) {
-                        printf("else happening\n");
-                        ifValid = true;
-                    }
+                if (ifCount == ifInvalidState && !ifValid) {
+                    // if (!ifValid) {
+                    //     printf("else happening\n");
+                    //     ifValid = true;
+                    // }
+                    printf("else happening\n");
+                    ifValid = true;
                 }
                 //if we are in a different state, then we know that the if passed
                 //so the else fails.
+                else ifValid = false;
+                elseAppeared = true;
+                finishedEmbedRead = true;
+                oi = 0;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+            }
+            else if (!strcmp(command, "ELSE-IF")) {
+                //kinda works like else, first check if an else has appeared
+                if (elseAppeared) goto failure;
+                if (!ifAppeared) goto failure;
+                
+                if (ifCount == ifInvalidState && !ifValid) {
+                    // if (!ifValid) {
+                    //     printf("else if happening\n");
+                    //     mode = 2;
+                    //     goto mode2;
+                    // }
+                    printf("else if happening\n");
+                    mode = 2;
+                    goto mode2;
+                }
                 else ifValid = false;
                 finishedEmbedRead = true;
                 oi = 0;
@@ -1018,7 +1049,13 @@ char* openHTML(const char* filepath, queryMap* variables) {
                 memset(offload, 0, offloadSize * sizeof(char));
             }
             else if (!strcmp(command, "ENDIF")) {                
-                if (ifCount == ifInvalidState) ifValid = true;
+                if (ifCount == ifInvalidState) {
+                    ifValid = true;
+                    elseValid = true;
+                    elseIfValid = true;
+                }
+                ifAppeared = false;
+                elseAppeared = false;
                 ifCount--;
                 mode = -1;
                 finishedEmbedRead = true;
@@ -1029,13 +1066,21 @@ char* openHTML(const char* filepath, queryMap* variables) {
             }
             else if (!strcmp(command, "IF")) {
                 ifCount++;
+                if (elseAppeared) goto failure;
+                ifAppeared = true;
                 //assuming that we are in a nested if
                 if (ifValid) {
                     mode = 2;
                     goto mode2;
                 }
+                finishedEmbedRead = true;
+                oi = 0;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
             }
+            
             else if (!ifValid) mode = -1;
+            
             else if (!strcmp(command, "VAR")) {
                 mode = 0;
                 goto mode0;

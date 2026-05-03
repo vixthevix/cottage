@@ -5,9 +5,11 @@
     <br>
     {{IF:(age>18)}}
         I can work :)
-
+        <br>
         {{IF:(age>60)}}
             I'm hella unc damn
+        {{ELSE-IF:(age>30)}}
+            This is the peak of my life    
         {{ELSE}}
             I'm still young, {{VAR:age}} is young    
         {{ENDIF}}
