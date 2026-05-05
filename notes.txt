@@ -1,0 +1,109 @@
+Stuff to do:
+
+implement {} reading into sendHTML
+learn how to send things other than HTML 
+learn how to implement CSS
+
+most of this is frontend stuff. idk how complicated id like the backend to be.
+
+EVENTUALLY, ill integrate CGame into this framework, which would require knowledge of web assembly injection, so thats something i guess.
+
+also database integration. i dont know if we need to actually do this because a DB is separate from a website, including the code presumably.
+(if i ever want to have a database for this thing, ill just look for a single header file somewhere to do it for me)
+
+oh and of course make this whole thing cross platform between linux and windows but shouldnt be hard at all. at least much easier than with CGame.
+
+Also for website sessions, I'll need to store variables separatly:
+    LOCALSTATE, these are the variables existing on the page
+    you are on right now.
+    
+    GLOBALSTATE, these variables exist everywhere.
+    
+    TRANSFERSTATE, this acts more like a buffer for
+    transferring things between localstates.
+    (Used with page redirects from POST requests, maybe
+    with components as well etc.)
+
+For testing, make these just global querymaps.
+For production when polling is set up, keep track of
+each users states separatly.
+
+actually maybe use client side cookies to keep memory in control, and to allow use of a database.
+
+its kind of like, store a cookie there, when you get a cookie back, store the cookie variable+values in a qMap, to then use how you want.
+
+yeah that sounds better.
+
+
+update on most recent things:
+    got primitive version of IF...ELSE-IF...ELSE...ENDIF working
+    got multiple file sending done, with room for extension
+
+in terms of new features now to add:
+    cookie support
+    FOR and FOREACH loops (probably all under FOR)
+
+    (To be honest, seems easier and more useful than a while loop)
+
+Before we do this, lets just redo the whole type system for vars.
+    Right now, everything is stored as a string, including numbers.
+    Lets just make a generic struct (void* data and TYPE enum).
+    What types do we want?
+        INT8
+        INT16
+        INT32
+        INT64
+        Unsigned versions of these
+        FLOAT
+        DOUBLE
+        BOOL
+        STRING
+    
+    Also, incorporate the isArray boolean, to state the obvious.
+
+    Now a question that I need to face: do I make these arrays MULTI-TYPED or SINGLE-TYPED?
+    I think with the nature of web dev, I'm leaning towards multi-typed. 
+    However, if that proves too difficult, inefficient and complex, I'll switch to the simpler single-typed.
+
+    Of course arrays can be complexed, especially with an array that stores an array of arrays of int arrays and 3 strings and a uint32...
+    but thats out of my hands, you did that to yourself programmer.
+        
+
+for FOR loops, we can either provide a range of numbers (just numbers, no characters maybe), or an array.
+This array can be all of the variables present, or an array within it itself.
+
+
+more on the types
+I will try to implement one more type, it will act kind 
+of like a JSON. I think I will call it a COMPOSITE
+
+think of it like a tree structure:
+    LEAF NODES are the basic types listed above, including STRINGs.
+    BRANCH NODES are these COMPOSITEs. 
+    
+    a COMPOSITE cannot be a LEAF NODE. 
+    also, a COMPOSITE cannot be directly assessed; 
+    you must instead access a LEAF NODE directly from it,
+    or from its children COMPOSITEs.
+    You will be able to do this using dot notation
+    (e.g. studentInfo.name => STRING, 
+    studentInfo.parentInfo.mother.age => UINT8)
+
+In order for a COMPOSITE to work this way, almost always they
+must be labelled as arrays. Otherwise, you just have a single
+child node, which is kind of useless lmao
+
+also, the void* data that a COMPOSITE takes is a siteVar.
+So its like a multi-linked list lmao
+I don't know how memory efficient it is, but for now make it work
+
+
+yes twin
+
+struct siteVar {
+    char* name;
+    void* data;
+    VARTYPE type;
+    bool isArray;
+}
+
