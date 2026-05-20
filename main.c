@@ -69,7 +69,7 @@ int main(void) {
             queryMap* vars = qmapCombine(getdata.variables, temp);
             qmapFree(temp);
 
-            qmapInsert(vars, "fart", "ass");
+            qmapInsert(vars, "fart", "poop");
 
             //we get a path from the linkmap. if sending this path doesnt work, we just ask for the link
             //this is very dangerous as we essentially open up our whole folder here.

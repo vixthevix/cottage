@@ -4,12 +4,16 @@ echo compiling $1...
 gcc $1.c -o $1
 echo finished compiling
 
-read -p "Run? (y/n) " response
+success=$?
 
+if [ $success == 0 ]; then
+	read -p "Run? (y/n) " response
+	if [ $response == "y" ]; then
 
-if [ $response == "y" ]; then
+		echo running...
+		./$1
 
-	echo running...
-	./$1
-
+	fi
+else
+	echo "Compilation unsuccesful :("
 fi

@@ -97,6 +97,33 @@ also, the void* data that a COMPOSITE takes is a siteVar.
 So its like a multi-linked list lmao
 I don't know how memory efficient it is, but for now make it work
 
+actually, for the final implementation, it may be that the 
+void* data of a composite, while still being of type siteVar*,
+will act like a hashmap of siteVars.
+In this way, you can access composite values 
+normally (access),
+by index (accessAt),
+or by variable name (accessVar).
+
+when initialised, will use a hash function using the name of the variable
+to store into the thing.
+
+and accessVar will also use the same technique
+
+we will also need updateVar using hashing.
+while maintaining update, updateAt and updateRange.
+these will surely break the system, but whatever its your fault.
+
+
+19/05/2026 update:
+    we finished implementing boolCalc properly pretty sure yippie
+    now, rename functions, clean up code, clean up memory management.
+    reduce the number of types to just their base (i.e. INT, UINT, FLOAT, STRING, BOOL)
+
+    things to implement in the future
+        mathematical operators (+,-,*,/)
+        adding characters in (using '(char)' notation)
+
 
 yes twin
 
@@ -105,5 +132,21 @@ struct siteVar {
     void* data;
     VARTYPE type;
     bool isArray;
+    size_t arrayLen;
+    size_t arrayCapacity;
 }
+
+
+
+
+note on potential name for this "framework"
+    Right now, its just called C HTTP server.
+    For the release, im liking the name...
+    
+    Cottage
+    
+    Begins with C, like the language :O
+    I love you kutaj
+    Sounds like a cosy thing, like gives the vibe of "simple web server
+    you can deploy from home", also has simplicity in mind.
 
