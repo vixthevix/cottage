@@ -170,6 +170,17 @@ all of this will be included in a single header file, cottage.h
 #include <sys/socket.h>
 #include <netdb.h>
 
+queryInit -> strPairInit
+queryFree -> strPairFree
+qmapNewSize -> strMapNewSize
+qmapInit -> strMapInit
+qmapFree -> strMapFree
+qmapInsert -> strMapInsert
+qmapResize -> strMapResize
+qhash -> strMapHash
+qmapGet -> strMapGet
+qmapCombine -> strMapCombine
+
 
 
 

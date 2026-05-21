@@ -1,18 +1,7 @@
 #ifndef TCPSETUP_COT
 #define TCPSETUP_COT
 
-//basic utilities
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
-
-//needed for sockets
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
+#include "dependencies_cot.h"
 
 //TCP stuff
 int serverInit(const char* address, const char* port, bool passive) {
