@@ -57,7 +57,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
     //we will try write to data using a for loop, to keep track of our frontend shenanigans
     char* data = (char*) calloc(size + 1, sizeof(char));
-    int c = 0, i = 0;
+    int c = 0, di = 0;
 
     //use a stack to keep track of brackets
     //char bracketStack[50] = {0};
@@ -77,7 +77,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
     //if not found there, do not put in the new variables
     //otherwise, yes.
 
-    siteVar* newVariables = siteVarInit("newVariables", COMPOSITE, 0, NULL);
+    // siteVar* newVariables = siteVarInit("newVariables", COMPOSITE, 0, NULL);
 
     //use a diamond bracket count to know when to read curlies
     int diamondCount = 0;
@@ -233,8 +233,8 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 char* value = BC_VariableToString(var, 0);
                 if (value) {
                     //write into data
-                    for (int j = 0; j < strlen(value); j++, i++) {
-                        data[i] = value[j];
+                    for (int j = 0; j < strlen(value); j++, di++) {
+                        data[di] = value[j];
                     }
                     free(value);
                     free(var);
@@ -274,7 +274,9 @@ char* openHTML(const char* filepath, siteVar* variables) {
                     goto readINPUT;
                 }
                 //here we put stuff into newVariables
-                if (!newVariables) goto readINPUT;
+                
+                // if (!newVariables) goto readINPUT;
+                siteVar* newVariables = siteVarInit("newVariables", COMPOSITE, 0, NULL);
 
                 //we now have to put things inside the newVariables.
                 //loop through the remainder of offload and find variables
@@ -317,9 +319,17 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
                             //first, check if its a number
                             //a string, or a variable
-                            if (BC_isFloat(curValue)) {
-                                //qmapInsert(newVariables, curVar, curValue);
+                            if (BC_isUInt(curValue)) {
+                                siteVarCompositeInsertNew(newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
+                            }
+                            else if (BC_isInt(curValue)) {
+                                siteVarCompositeInsertNew(newVariables, curVar, INT, 1, &((int_cot){BC_StrToInt(curValue)}));
+                            }
+                            else if (BC_isFloat(curValue)) {
                                 siteVarCompositeInsertNew(newVariables, curVar, FLOAT, 1, &((float_cot){BC_StrToFloat(curValue)}));
+                            }
+                            else if (BC_isBool(curValue)) {
+                                siteVarCompositeInsertNew(newVariables, curVar, BOOL, 1, &((bool){BC_StrToBool(curValue)}));
                             }
                             else if (BC_isString(curValue)) {
                                 //remove the quote marks
@@ -329,11 +339,15 @@ char* openHTML(const char* filepath, siteVar* variables) {
                                 siteVarCompositeInsertNew(newVariables, curVar, STRING, 1, &((string_cot){BC_StrToStr(curValue)}));
                             }
 
-                            else if (BC_isArray(curValue)) {
-                                //elements are divided by commas
-                                //they cannot be arrays themselves.
-                                //they must all be of the same type, with the first element as a reference point
-                                //existing variables can exist here as well
+                            else if (BC_isArray(curValue)) { //NEXT TASK
+
+                                siteVar* storage = BC_ArrayToSiteVar(curVar, curValue, variables);
+                                //now we have storage, first check if its null
+                                //then put it into our thing
+                                if (storage) {
+                                    siteVarCompositeInsert(newVariables, storage);
+                                    siteVarFree(storage);
+                                }
                             }
 
                             else { //must be variable
@@ -368,23 +382,48 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 }
                 //put in anything left
                 //copy over from above
+                //TO DO, first clean up your code and put it into separate functions
+                //THEN copy it over.
                 if (!isVar) {
                     if (curVar && curValue) {
-                        //first, check if its a number
-                        //a string, or a variable
-                        if (BC_isNum(curValue)) {
-                            qmapInsert(newVariables, curVar, curValue);
+                        if (BC_isUInt(curValue)) {
+                            siteVarCompositeInsertNew(newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
                         }
-                        else if (curValue[0] == '"' && curValue[strlen(curValue) - 1] == '"') {
+                        else if (BC_isInt(curValue)) {
+                            siteVarCompositeInsertNew(newVariables, curVar, INT, 1, &((int_cot){BC_StrToInt(curValue)}));
+                        }
+                        else if (BC_isFloat(curValue)) {
+                            //qmapInsert(newVariables, curVar, curValue);
+                            siteVarCompositeInsertNew(newVariables, curVar, FLOAT, 1, &((float_cot){BC_StrToFloat(curValue)}));
+                        }
+                        else if (BC_isBool(curValue)) {
+                            siteVarCompositeInsertNew(newVariables, curVar, BOOL, 1, &((bool){BC_StrToBool(curValue)}));
+                        }
+                        else if (BC_isString(curValue)) {
                             //remove the quote marks
-                            BC_delAt(curValue, 0);
-                            BC_delAt(curValue, strlen(curValue) - 1);
-                            qmapInsert(newVariables, curVar, curValue);
+                            //BC_delAt(curValue, 0);
+                            //BC_delAt(curValue, strlen(curValue) - 1);
+                            //qmapInsert(newVariables, curVar, curValue);
+                            siteVarCompositeInsertNew(newVariables, curVar, STRING, 1, &((string_cot){BC_StrToStr(curValue)}));
                         }
-                        else { //mut be variable
-                            char* x = qmapGet(variables, curValue);
+                        else if (BC_isArray(curValue)) { //NEXT TASK
+
+                            siteVar* storage = BC_ArrayToSiteVar(curVar, curValue, variables);
+                            //now we have storage, first check if its null
+                            //then put it into our thing
+                            if (storage) {
+                                siteVarCompositeInsert(newVariables, storage);
+                                siteVarFree(storage);
+                            }
+                        }
+                        else { //must be variable
+                            //char* x = qmapGet(variables, curValue);
+                            //siteVar* x = siteVarCompositeAccess(variables, curValue);
+                            siteVar* x = BC_StrToVariable(curValue, variables, variables);
                             if (x) {
-                                qmapInsert(newVariables, curVar, x);
+                                //qmapInsert(newVariables, curVar, x);
+                                siteVarCompositeInsert(newVariables, x);
+                                siteVarFree(x);
                             }
                             else {
                                 //do nothing, because nothing can be done
@@ -396,6 +435,10 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 readINPUT:
                 char* dataINPUT = openHTML(link, newVariables);
                 free(link);
+
+                //reset newVariables
+                siteVarFree(newVariables);
+                newVariables = NULL;
                 //copy over the new data
                 if (dataINPUT) {
                     printf("input data got\n");
@@ -403,8 +446,8 @@ char* openHTML(const char* filepath, siteVar* variables) {
                     //we need to reallocate our data to take into account
                     //increases in size
                     data = (char*) realloc(data, size + (strlen(dataINPUT) << 1));
-                    for (j = 0; j < strlen(dataINPUT); j++, i++) {
-                        data[i] = dataINPUT[j];
+                    for (j = 0; j < strlen(dataINPUT); j++, di++) {
+                        data[di] = dataINPUT[j];
                     }
                     printf("dataINPUT read done\n");
                 }
@@ -430,7 +473,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 if (offload) {
                     char* formatted = BC_format(offload);
                     char* transformed = BC_transform(formatted);
-                    int result = BC_evaluate(transformed, variables);
+                    bool result = BC_evaluate(transformed, variables);
                     printf("formatted is %s, transformed is %s, result is %i\n", formatted, transformed, result);
                     
                     if (result) {
@@ -487,8 +530,8 @@ char* openHTML(const char* filepath, siteVar* variables) {
             if (ifValid) {
                 if (c == '<') diamondCount++;
                 else if (c == '>') diamondCount--;
-                data[i] = (char)c;
-                i++;
+                data[di] = (char)c;
+                di++;
             }
         }
     }
@@ -503,10 +546,10 @@ char* openHTML(const char* filepath, siteVar* variables) {
     fclose(file);
     free(offload);
     free(command);
-    qmapFree(newVariables);
+    //qmapFree(newVariables);
     if (data) {
         //set safety null terminator
-        data[i] = 0;
+        data[di] = 0;
         return data;
     }
     else {
@@ -517,7 +560,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
 
 //lets make a function for sending over an html file
-int sendHTML(const char* filepath, int client, siteVar* variables) {
+bool sendHTML(const char* filepath, int client, siteVar* variables) {
     //first, prepare the html
 
     char* data = openHTML(filepath, variables);
@@ -546,9 +589,9 @@ int sendHTML(const char* filepath, int client, siteVar* variables) {
 
 
         free(data);
-        return 1;
+        return true;
     }
-    else return 0;
+    else return false;
     
 }
 

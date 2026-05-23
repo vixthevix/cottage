@@ -175,19 +175,19 @@ bool BC_StrToBool(char* exp) {
 }
 
 
-int BC_StrToNum(char* exp) {
-    int number = 0;
-    int mult = 1;
-    for (int i = 0; i < strlen(exp); i++) {
-        char c = exp[i];
-        number += ((c - '0') * mult);
-        number *= 10;
-        printf("strToNum i is %i\n", i);
-    }
-    number /= 10;
-    return number;
+// int BC_StrToNum(char* exp) {
+//     int number = 0;
+//     int mult = 1;
+//     for (int i = 0; i < strlen(exp); i++) {
+//         char c = exp[i];
+//         number += ((c - '0') * mult);
+//         number *= 10;
+//         printf("strToNum i is %i\n", i);
+//     }
+//     number /= 10;
+//     return number;
 
-}
+// }
 
 /*
 If this works, it may help solve the issue of a billion types
@@ -229,6 +229,16 @@ generalNumber BC_siteVarToNumber(VARTYPE type, void* val) {
 			return 0.0; //error
 		}
 	}
+}
+
+VARTYPE BC_StrToType(char* exp) {
+	if (BC_isUInt(exp)) return UINT;
+	if (BC_isInt(exp)) return INT;
+	if (BC_isFloat(exp)) return FLOAT;
+	if (BC_isString(exp)) return STRING;
+	if (BC_isBool(exp)) return BOOL;
+
+	return ERROR; //no type found for this
 }
 
 /*
@@ -496,6 +506,111 @@ char* BC_VariableToString(siteVar* variable, size_t index) {
 bool BC_isArray(char* exp) {
     if (!exp) return false;
     return (exp[0] =='[' && exp[strlen(exp) - 1] == ']');
+}
+
+siteVar* BC_ArrayToSiteVar(char* name, char* exp, siteVar* variables) {
+	//elements are divided by commas
+	//they cannot be arrays themselves.
+	//they must all be of the same type, with the first element as a reference point
+	//existing variables can exist here as well
+	//values separated by commas
+	char arrayVar[512] = {0};
+
+	VARTYPE arrayType = ERROR;
+	bool typeFound = false;
+	siteVar* storage = NULL;
+
+	//we need some storage for each variable.
+	//make a void* container
+
+	size_t i = 1; //starting from not the bracket
+
+	while (i < strlen(exp)) {
+		size_t k = 0;
+		while (exp[i] != ',' && i < strlen(exp)) { //read until next variable
+			arrayVar[k++] = exp[i++];
+		}
+		if (i >= strlen(exp)) { //reached the end
+			continue; //end early
+		}
+		i++; //to skip the comma
+
+		VARTYPE type = BC_StrToType(arrayVar);
+		if (!typeFound) {
+			arrayType = type;
+			typeFound = true;
+			if (arrayType == ERROR) { //must be a variable, we dont set the type yet
+
+			}
+			else storage = siteVarInit(name, arrayType, 2, NULL); //2 to make it an array
+		}
+		else {
+			if (type != arrayType) goto failure;
+		}
+		//void* storage = NULL;
+		switch (type) {
+			case INT: {
+				int_cot arrayVal = BC_StrToInt(arrayVar);
+				siteVarInsert(storage, &arrayVal);
+				break;
+			}
+			case UINT: {
+				uint_cot arrayVal = BC_StrToUInt(arrayVar);
+				siteVarInsert(storage, &arrayVal);
+				break;
+			}
+			case FLOAT: {
+				float_cot arrayVal = BC_StrToFloat(arrayVar);
+				siteVarInsert(storage, &arrayVal);
+				break;
+			}
+			case BOOL: {
+				bool_cot arrayVal = BC_StrToBool(arrayVar);
+				siteVarInsert(storage, &arrayVal);
+				break;
+			}
+			case STRING: {
+				string_cot arrayVal = BC_StrToStr(arrayVar);
+				siteVarInsert(storage, &arrayVal);
+				free(arrayVal);
+				break;
+			}
+			default: { //its a variable
+				siteVar* arrayVal = BC_StrToVariable(arrayVal, variables, variables);
+				if (!arrayVal) {
+					siteVarFree(arrayVal);
+					goto failure;
+				}
+				//if this is a composite, we must throw failure
+				//because it assumes we have an array of composites
+				//which is not allowed
+				if (arrayVal->type == COMPOSITE) goto failure;
+
+				//initialise storage here if not done yet
+				if (!typeFound) {
+					typeFound = true;
+					arrayType = arrayVal->type;
+					storage = siteVarInit(name, arrayType, 2, NULL);
+				}
+
+				//can only be one element
+				void* arrayVal_Value = siteVarAccess(arrayVal);
+				siteVarInsert(storage, arrayVal);
+				free(arrayVal_Value);
+				siteVarFree(arrayVal);
+
+			}
+		}
+
+		//reset arrayVar
+		memset(arrayVar, 0, strlen(arrayVar));
+	}
+
+	return storage;
+
+	failure:
+	siteVarFree(storage);
+	return NULL;
 }
 
 

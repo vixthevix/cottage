@@ -50,6 +50,7 @@ Right now, everything is stored as a string, including numbers.
  * overflows may occur.
  */
 typedef enum VARTYPE {
+    ERROR = -1,
     INT,
     UINT,
     FLOAT,
@@ -320,7 +321,9 @@ bool INTERNAL_siteVarNameLegal(char* name) {
         '\"',
         '-',
         '[',
-        ']'
+        ']',
+        ',',
+        '.'
     }; 
 
     if (!name) return false;
@@ -523,6 +526,43 @@ bool siteVarUpdateAt(siteVar* target, uint16_t index, void* data) {
 
 bool siteVarUpdate(siteVar* target, void* data) {
     return (!target->isArray) ? siteVarUpdateAt(target, 0, data) : NULL;
+}
+
+
+//array insertion
+//just implement pushBack for now
+
+bool siteVarInsert(siteVar* target, void* data) {
+    if (!target || target->type == COMPOSITE) return false;
+        
+    size_t size = INTERNAL_siteVarTypeSize(target->type);
+    bool isString = false;
+    //we need to use a load balancer to allocate enough space.
+    const unsigned int load = target->arrayItemCount * 100 / target->arrayLen;
+    if (load > 60) {
+        printf("resizing...\n");
+        //target = INTERNAL_siteVarCompositeResize(target);
+        target->arrayLen <<= 1; //double the size
+        target->data = realloc(target->data, size * target->arrayLen);
+    }
+
+    if (isString) {
+        string_cot string = *((string_cot*)data);
+        string_cot* stringData = (string_cot)target->data;
+
+        string_cot insertion = (string_cot)calloc(strlen(string) + 1, sizeof(char));
+        strcpy(insertion, string);
+
+        stringData[target->arrayItemCount] = insertion;
+        target->arrayItemCount++;
+    }
+    else {
+        //assume data consists of only one value
+        memcpy(target->data + (size * target->arrayItemCount), data, size);
+    }
+
+    return true;
+
 }
 
 #define siteVarTransfer(type, name, function) type name = *(type*)function
