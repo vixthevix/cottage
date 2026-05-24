@@ -555,7 +555,6 @@ char* openHTML(const char* filepath, siteVar* variables) {
     else {
         return NULL;
     }
-    
 }
 
 
