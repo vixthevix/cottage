@@ -241,6 +241,35 @@ VARTYPE BC_StrToType(char* exp) {
 	return ERROR; //no type found for this
 }
 
+// void* BC_StrToData(char* exp) {
+// 	VARTYPE type = BC_StrToType(exp);
+
+
+
+// 	switch (type) {
+// 		case UINT: {
+
+// 			break;
+// 		}
+// 		case UINT: {
+// 			break;
+// 		}
+// 		case UINT: {
+// 			break;
+// 		}
+// 		case UINT: {
+// 			break;
+// 		}
+// 		case UINT: {
+// 			break;
+// 		}
+// 		default: {
+// 			return NULL;
+// 			break;
+// 		}
+// 	}
+// }
+
 /*
 	must now perform variable analysis.
 	var => just the variable

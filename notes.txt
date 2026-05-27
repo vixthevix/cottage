@@ -182,6 +182,17 @@ qmapGet -> strMapGet
 qmapCombine -> strMapCombine
 
 
+24/05/26:
+httpsplit is going well, currently working on getting the offload
+things we need to work on is how to encode and decode the offload.
+also, we need to ensure that numbers and stuff dont get too big.
+to avoid number overflows and such
+
+with the offload encoding, we can just not do it, and then have type inference.
+however, this would kinda expose everything about the website link, which is a security vulnerability?
+we'll look into it, id say type inference is very easy to do tho so its fine.
+
+
 
 
 
