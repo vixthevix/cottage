@@ -11,4 +11,161 @@ and if not defined, default behaviour can occur, using the handle functions
 
 #include "dependencies_cot.h"
 #include "httpsplit_cot.h"
+#include "sitevar_cot.h"
 
+
+/*
+what does a RouteFunction really need?
+    the request data to work with it and respond to it properly
+    the clientfd as a direct link to the client.
+    we need to have a link to some external data if its needed
+    e.g. data about a user from a database.
+    a siteVar could be pretty good here honestly, since its flexible
+
+return a boolean for success or failure
+*/
+
+typedef bool (*RouteFunction)(HttpRequest request, int clientfd, siteVar* extraData);
+
+//also make a macro for creating a default definition of a RouteFunction
+
+#define NewRouteFunction(functionName) bool functionName(HttpRequest request, int clientfd, siteVar* extraData)
+
+
+typedef struct RouteEntry {
+    RouteFunction routeGet;
+    RouteFunction routePost;
+    RouteFunction routePut;
+    RouteFunction routeDelete;
+} RouteEntry;
+
+
+typedef struct RoutePair {
+    char* key;
+    RouteEntry route;
+    int pd;
+} RoutePair;
+
+typedef struct RouteMap {
+    RoutePair** items;
+    size_t count;
+    size_t capacity;
+} RouteMap;
+
+RoutePair* RoutePairInit(char* key, RouteEntry route) {    
+    RoutePair* newpair = (RoutePair*) malloc(sizeof(RoutePair));
+    newpair->key = (char*) malloc(strlen(key) + 1);
+    strcpy(newpair->key, key);
+    newpair->route = route;
+    newpair->pd = 0;
+
+    return newpair;
+}
+
+void RoutePairFree(RoutePair* pair) {
+    if (pair->key) free(pair->key);
+    free(pair);
+    pair = NULL;
+}
+
+RouteMap* RouteMapNewSize(const size_t oldSize) {
+    const size_t newSize = oldSize << 1;
+    RouteMap* newmap = (RouteMap*) malloc(sizeof(RouteMap));
+    newmap->count = 0;
+    newmap->capacity = newSize;
+    newmap->items = (RoutePair**) calloc(newSize, sizeof(RoutePair*));
+
+    return newmap;
+}
+
+RouteMap* RouteMapInit() {
+    const size_t initSize = 8 >> 1; //initial size of 8
+    return RouteMapNewSize(initSize);
+}
+
+void RouteMapFree(RouteMap* map) {
+    for (size_t i = 0; i < map->capacity; i++) {
+        if (map->items[i]) RoutePairFree(map->items[i]);
+    }
+    free(map->items);
+    free(map);
+    map = NULL;
+}
+
+bool RouteMapInsert(RouteMap* map, char* key, RouteEntry route);
+
+RouteMap* RouteMapResize(RouteMap* map) {
+    RouteMap* newmap = RouteMapNewSize(map->capacity);
+    newmap->count = map->count;
+
+    for (size_t i = 0; i < map->capacity; i++) {
+        if (map->items[i]) {
+            RouteMapInsert(newmap, map->items[i]->key, map->items[i]->route);
+        }
+    }
+    
+    RouteMapFree(map);
+
+    return newmap;
+}
+
+bool RouteMapInsert(RouteMap* map, char* key, RouteEntry route) {
+    if (!key || !map) return false;
+
+    const size_t load = map->count * 100 / map->capacity;
+    if (load > 60) map = RouteMapResize(map);
+
+    RoutePair* newPair = RoutePairInit(key, route);
+    size_t initpos = stringHash(key) % map->capacity;
+    size_t index;
+    RoutePair* curPair;
+
+    for (size_t i = 0; i < map->capacity; i++) {
+        index = (initpos + i) % map->capacity;
+        curPair = map->items[index];
+
+        if (curPair == NULL) {
+            map->items[index] = newPair;
+            map->count++;
+            return true;
+        }
+        if (strcmp(curPair->key, key) == 0) {
+            RoutePairFree(map->items[index]);
+            map->items[index] = newPair;
+            return true;
+        }
+        if (newPair->pd > curPair->pd) {
+            map->items[index] = newPair;
+            newPair = curPair;
+        }
+
+        newPair->pd++;
+    }
+
+    RoutePairFree(newPair);
+    return false;
+}
+
+RouteEntry RouteMapGet(RouteMap* map, char* key) {
+    RouteEntry error;
+    memset(&error, 0, sizeof(RouteEntry));
+    
+    if (!map || !key) return error;
+
+    size_t initpos = stringHash(key) % map->capacity;
+    size_t index;
+    RoutePair* curPair;
+    int curpd = 0;
+
+    for (size_t i = 0; i < map->capacity; i++) {
+        index = (initpos + i) % map->capacity;
+        curPair = map->items[index];
+
+        if (curPair == NULL || curPair->pd < curpd) return error;
+        if (strcmp(curPair->key, key) == 0) return curPair->route;
+
+        curpd++;
+    }
+
+    return error;
+}

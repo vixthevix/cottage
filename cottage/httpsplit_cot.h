@@ -26,6 +26,7 @@ but thats pretty much it
 
 #include "dependencies_cot.h"
 #include "stringmap_cot.h"
+#include "routemap_cot.h"
 #include "sitevar_cot.h"
 #include "fopen_cot.h"
 
@@ -230,6 +231,68 @@ HttpRequest splitHttpRequest(char* data) {
 //for now, try not to use any options, just work with the target and payload
 
 
+/*
+a general handleRequest function
+will split the target into the link and its offload
+it will then look into the routeMap to get the specific route to take,
+based on the request.
+
+it is up to the programmer to decide what to do with the routes.
+though there are default handles you can use to help.
+
+a route function that points to null will do nothing.
+no "default" behaviour with null to prevent unintended behaviour,
+everything must be explicitly defined.
+*/
+
+bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteMap* routes) {
+    if (!HttpRequestValid(request) || !routes) return false;
+
+
+    char link[512] = {0};
+    int index = 0;
+
+    while (index < strlen(request.target) && request.target[index] != '?') {
+        link[index] = request.target[index];
+        index++;
+    }
+
+    //with this link, we can get our routes
+
+    RouteEntry route = RouteMapGet(routes, link);
+
+    //for now, nothing happens if NULL
+    //but maybe perform an error 405 method not allowed block
+
+    switch (request.type) {
+        case GET: {
+            if (route.routeGet) route.routeGet(request, clientfd, extraData);
+            break;
+        }
+        case POST: {
+            if (route.routePost) route.routePost(request, clientfd, extraData);
+            break;
+        }
+        case PUT: {
+            if (route.routePut) route.routePut(request, clientfd, extraData);
+            break;
+        }
+        case DELETE: {
+            if (route.routeDelete) route.routeDelete(request, clientfd, extraData);
+            break;
+        }
+        default: {
+            //do nothing
+            break;
+        }
+    }
+
+    return true;
+
+}
+
+
+
 //maybe include extraVariables here who knows
 //but this will involve some encoding
 siteVar* offloadToVariables(char* offload) {
@@ -418,81 +481,33 @@ siteVar* offloadToVariables(char* offload) {
     return variables;
 }
 
+//handle request is good, but we can provide default functions for each type of request as well.
+//not all of them probably, but GET is a good start
 
 
-bool handleGet(HttpRequest request, int clientfd, stringMap* links, siteVar* extraVariables) {
+bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath) {
     if (!HttpRequestValid(request) || !extraVariables || request.type != GET) return false;
-    
-    //our request has the link in the target section.
-    //we will use it to access the links
-    //because this is kind of meant to be a basic way of handling a GET request,
-    //not a lot of thought here lowkey.
 
-    //we actually need to first split the request target into 
-    //the actual link, and the variables
+    //filePath has our direct link.
+    //we need our offload though, we can use strstr for this conveniently
 
-    char link[512] = {0};
-    char offload[512] = {0};
-    bool markFound = false;
-    int index = 0;
-
-    for (size_t i = 0; i < strlen(request.target); i++) {
-        if (request.target[i] == '?') {
-            markFound = true;
-            index = 0;
-            continue;
-        }
-
-        if (!markFound) {
-            link[index++] = request.target[i];
-        }
-        else {
-            offload[index++] = request.target[i];
-        }
+    char* offloadPosition = strstr(request.target, "?");
+    char* offload = NULL;
+    if (offloadPosition) {
+        size_t offloadPositionLen = strlen(offloadPosition);
+        offload = (char*) malloc(offloadPositionLen + 1);
+        strcpy(offload, offloadPosition);
+        offload[offloadPositionLen] = 0;
+        BC_delAt(offload, 0); //to remove question mark
     }
 
-    //now the link is okay, but we need to convert our offload into vars
-
     siteVar* offloadVars = offloadToVariables(offload);
-
-    //which has priority, extraVariables or offloadVars?
-    //we could differentiate it in HTML by having an extraVar container
-    //for example, called global
-    //referenced in the html as global.variable
-    
-    //siteVar* vars = siteVarCompositeCombine()
     siteVarCompositeInsert(offloadVars, extraVariables);
-
-
-    char* filepath = strMapGet(links, request.target);
-
-    sendFile(filepath, clientfd, offloadVars);
+    
+    sendFile(filePath, clientfd, offloadVars);
 
     siteVarFree(offloadVars);
     
-
-    return true;
-} 
-
-
-/*
-For a default POST request, technically they differ by Content type.
-this being URL encoded, or a multi part.
-We will initially use just URL encoded.
-
-the target will be interpreted as a folder,
-also using a stringMap for links (probably separate than GET links?)
-if the target has any parameters, ignore them.
-use only the offload for input data.
-
-because its a POST request, target as a folder means we can create a unique file
-with a unique name, like just numbering them.
-idk, a "default POST" feels like it wouldnt work, but this is the best i can come up with
-
-*/
-bool handlePost(HttpRequest request, int clientfd, stringMap* links, siteVar* extraVariables) {
-
-
     return true;
 }
 

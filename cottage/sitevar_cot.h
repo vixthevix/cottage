@@ -25,6 +25,7 @@ Right now, everything is stored as a string, including numbers.
 
 */
 #include "dependencies_cot.h"
+#include "hashfunc_cot.h"
 
 // typedef enum VARTYPE {
 //     INT8,
@@ -110,17 +111,7 @@ siteVar* INTERNAL_siteVarCompositeNewSize(const size_t oldSize) {
 }
 
 
-size_t INTERNAL_siteVarCompositeHash(char* name) {
-    unsigned int hash = 5381; //magic number
-    int c;
-
-    char* key = name;
-
-    while ((c = *key++)) //for each character in the string
-        hash = ((hash << 5) + hash) + c; //hash * 33 + c
-
-    return hash;
-}
+//#define stringHash stringHash
 
 //#define siteVarInsertVar siteVarCompositeInsert
 
@@ -136,7 +127,7 @@ bool siteVarCompositeInsert(siteVar* target, siteVar* var) {
 
     //copy over var to insert
     siteVar* new = siteVarInit(var->name, var->type, var->arrayLen, var->data);
-    size_t initpos = INTERNAL_siteVarCompositeHash(new->name) % target->arrayLen;
+    size_t initpos = stringHash(new->name) % target->arrayLen;
     size_t index;
     siteVar* curVar;
 
@@ -186,7 +177,7 @@ int siteVarCompositeInsertNew(siteVar* target, char* name, VARTYPE type, size_t 
 siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
     if (!target || target->type != COMPOSITE) return 0;
     
-    size_t hashed = INTERNAL_siteVarCompositeHash(name);
+    size_t hashed = stringHash(name);
     size_t initpos = hashed % target->arrayLen;
 
     size_t index;

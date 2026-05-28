@@ -2,6 +2,7 @@
 #define STRINGMAP_COT
 
 #include "dependencies_cot.h"
+#include "hashfunc_cot.h"
 
 typedef struct stringPair {
     char* key;
@@ -87,25 +88,6 @@ stringMap* strMapResize(stringMap* strMap) { //currently only resize upwards, si
 
 }
 
-//will use djb2 hashing algorithm
-unsigned int qhash(stringPair* pair) {
-    unsigned int hash = 5381; //magic number
-    int c;
-    
-    char* key = pair->key;
-    printf("key is %s\n", key);
-
-    printf("begin hash\n");
-    while ((c = *key++)) //for each character in the string
-        hash = ((hash << 5) + hash) + c; //hash * 33 + c
-
-    printf("hash got: %u\n", hash);
-    return hash;
-}
-
-
-
-
 
 int strMapInsert(stringMap* strMap, char* key, char* value) {
     if (!key || !value || !strMap) return 1;
@@ -114,7 +96,7 @@ int strMapInsert(stringMap* strMap, char* key, char* value) {
     if (load > 60) strMap = strMapResize(strMap);
     
     stringPair* newpair = strPairInit(key, value);
-    unsigned int initpos = qhash(newpair) % strMap->capacity;
+    unsigned int initpos = stringHash(key) % strMap->capacity;
     unsigned int index;
     stringPair* curpair;
 
@@ -150,18 +132,11 @@ int strMapInsert(stringMap* strMap, char* key, char* value) {
 
 }
 
-
-
-
-
-
 char* strMapGet(stringMap* strMap, char* key) {
     //printf("strMap get starting\n");
     //if (key) printf("key valid\n");
 
-    stringPair temp = {.key = key, .value = NULL};
-    unsigned int hashed = qhash(&temp);
-    unsigned int initpos = hashed % strMap->capacity;
+    unsigned int initpos = stringHash(key) % strMap->capacity;
     
     //printf("initpos get\n");
     unsigned int index;
