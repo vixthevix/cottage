@@ -139,7 +139,7 @@ bool siteVarCompositeInsert(siteVar* target, siteVar* var) {
 
         if (curVar == NULL) {
             //new->pd++;
-            printf("%s stored at index %i inside of %s\n", new->name, index, target->name);
+            printf("%s stored at index %lu inside of %s\n", new->name, index, target->name);
             targetData[index] = new;
             target->arrayItemCount++;
             return true;
@@ -147,7 +147,7 @@ bool siteVarCompositeInsert(siteVar* target, siteVar* var) {
         //we replace variables with the same name
         if (!strcmp(curVar->name, new->name)) {
             //new->pd++;
-            printf("%s stored at index %i inside of %s\n", new->name, index, target->name);
+            printf("%s stored at index %lu inside of %s\n", new->name, index, target->name);
             siteVarFree(curVar);
             targetData[index] = new;
             return true;
@@ -189,7 +189,7 @@ siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
     for (size_t i = 0; i < target->arrayLen; i++) {
         index = (initpos + i) % target->arrayLen;
         curVar = data[index];
-        printf("hashmap looking at index %i of %s for %s\n", index, target->name, name);
+        printf("hashmap looking at index %lu of %s for %s\n", index, target->name, name);
 
         if (curVar == NULL || curpd > curVar->pd) {
             //printf("is curVar pd (%i) < curpd (%i)? %s\n", curVar->pd, curpd, (curVar->pd < curpd) ? "true":"false");
@@ -199,7 +199,7 @@ siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
         //returning a reference here
         //nope now returning a clone
         if (!strcmp(curVar->name, name)) {
-            printf("curVar name is %s, curVar value is %s\n", curVar->name, curVar->data);
+            printf("curVar name is %s, curVar value is %s\n", curVar->name, (char*)curVar->data);
             return siteVarClone(curVar);
         }
 
@@ -516,7 +516,7 @@ bool siteVarUpdateAt(siteVar* target, uint16_t index, void* data) {
 }
 
 bool siteVarUpdate(siteVar* target, void* data) {
-    return (!target->isArray) ? siteVarUpdateAt(target, 0, data) : NULL;
+    return (!target->isArray) ? siteVarUpdateAt(target, 0, data) : false;
 }
 
 
@@ -539,7 +539,7 @@ bool siteVarInsert(siteVar* target, void* data) {
 
     if (isString) {
         string_cot string = *((string_cot*)data);
-        string_cot* stringData = (string_cot)target->data;
+        string_cot* stringData = (string_cot*)target->data;
 
         string_cot insertion = (string_cot)calloc(strlen(string) + 1, sizeof(char));
         strcpy(insertion, string);

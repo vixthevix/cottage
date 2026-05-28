@@ -1,3 +1,6 @@
+#ifndef ROUTEMAP_COT
+#define ROUTEMAP_COT
+
 /*
 A routeMap is a kind of mapping from a string link, to a special struct
 containing function pointers for the different http requests.
@@ -10,34 +13,8 @@ and if not defined, default behaviour can occur, using the handle functions
 
 
 #include "dependencies_cot.h"
-#include "httpsplit_cot.h"
+#include "routefunction_cot.h"
 #include "sitevar_cot.h"
-
-
-/*
-what does a RouteFunction really need?
-    the request data to work with it and respond to it properly
-    the clientfd as a direct link to the client.
-    we need to have a link to some external data if its needed
-    e.g. data about a user from a database.
-    a siteVar could be pretty good here honestly, since its flexible
-
-return a boolean for success or failure
-*/
-
-typedef bool (*RouteFunction)(HttpRequest request, int clientfd, siteVar* extraData);
-
-//also make a macro for creating a default definition of a RouteFunction
-
-#define NewRouteFunction(functionName) bool functionName(HttpRequest request, int clientfd, siteVar* extraData)
-
-
-typedef struct RouteEntry {
-    RouteFunction routeGet;
-    RouteFunction routePost;
-    RouteFunction routePut;
-    RouteFunction routeDelete;
-} RouteEntry;
 
 
 typedef struct RoutePair {
@@ -169,3 +146,5 @@ RouteEntry RouteMapGet(RouteMap* map, char* key) {
 
     return error;
 }
+
+#endif

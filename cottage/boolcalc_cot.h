@@ -30,31 +30,6 @@ var.subvar => variable stored inside composite. can be subvar.subsubvar or subva
 #include "conversion_cot.h"
 
 
-void BC_putAt(char* exp, int i, char c) {
-	if (i < 0) return;
-	
-	//shift everything up 1
-	for (int j = strlen(exp); j > i; j--) {
-		exp[j] = exp[j - 1];
-	}
-	exp[i] = c;
-
-}
-
-void BC_delAt(char* exp, int i) {
-	if (i < 0 || i >= strlen(exp)) return;
-	
-	//shift everything up 1
-	int n = strlen(exp);
-	for (int j = i; j < strlen(exp); j++) {
-		exp[j] = exp[j + 1];
-	}
-}
-
-bool BC_isDoubleOperator(char c) {
-	return (c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
-}
-
 //removes all spaces, and turns double operators into single ones. also performs check.
 //do not delete spaces inside of strings
 char* BC_format(char* expression) {
@@ -267,13 +242,13 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 
 			if (BC_isUInt(value)) {
 				uint_cot number = BC_StrToUInt(value);
-				printf("its a uint: %u\n", number);
-				printf("number is %u\n", number);
+				printf("its a uint: %lu\n", number);
+				printf("number is %lu\n", number);
 				varVal = siteVarInit("", UINT, 1, &number);
 			}
 			else if (BC_isInt(value)) {
 				int_cot number = BC_StrToInt(value);
-				printf("its a int: %i\n", number);
+				printf("its a int: %li\n", number);
 				varVal = siteVarInit("", INT, 1, &number);
 			}
 			else if (BC_isFloat(value)) {
@@ -328,9 +303,9 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 			switch (stack[sp]->type) {
 				case UINT: {
 					uint_cot* val = (uint_cot*)stackVal;
-					printf("val was %u, ", *val);
+					printf("val was %lu, ", *val);
 					*val = !(*val);
-					printf("val is now %u\n", *val);
+					printf("val is now %lu\n", *val);
 					// siteVarUpdate(stack[sp], val);
 					// free(val);
 					break;

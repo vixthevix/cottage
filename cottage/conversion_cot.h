@@ -5,6 +5,32 @@
 #include "sitevar_cot.h"
 
 
+void BC_putAt(char* exp, int i, char c) {
+	if (i < 0) return;
+	
+	//shift everything up 1
+	for (int j = strlen(exp); j > i; j--) {
+		exp[j] = exp[j - 1];
+	}
+	exp[i] = c;
+
+}
+
+void BC_delAt(char* exp, int i) {
+	if (i < 0 || i >= strlen(exp)) return;
+	
+	//shift everything up 1
+	int n = strlen(exp);
+	for (int j = i; j < strlen(exp); j++) {
+		exp[j] = exp[j + 1];
+	}
+}
+
+bool BC_isDoubleOperator(char c) {
+	return (c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
+}
+
+
 bool BC_isUInt(char* exp) {
     for (int i = 0; i < strlen(exp); i++) {
         int digit = exp[i] - '0';
@@ -459,7 +485,7 @@ char* BC_IntToStr(int_cot target) {
     size_t digitCount = ((size_t)log10(target)) + 1;
     char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
     char* ptr = buffer;
-    ptr += sprintf(ptr, "%i", target);
+    ptr += sprintf(ptr, "%li", target);
 
     return buffer;
 }
@@ -469,7 +495,7 @@ char* BC_UIntToStr(uint_cot target) {
     size_t digitCount = ((size_t)log10(target)) + 1;
     char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
     char* ptr = buffer;
-    ptr += sprintf(ptr, "%u", target);
+    ptr += sprintf(ptr, "%lu", target);
 
     return buffer;
 }
@@ -477,10 +503,10 @@ char* BC_UIntToStr(uint_cot target) {
 //different number strategy
 char* BC_FloatToStr(float_cot target) {
     //to get the number of digits, use log base 10, truncate it, then add 1
-    size_t digitCount = snprintf(NULL, 0, "%d", target);
+    size_t digitCount = snprintf(NULL, 0, "%lf", target);
     char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
     char* ptr = buffer;
-    ptr += snprintf(ptr, digitCount + 1, "%d", target);
+    ptr += snprintf(ptr, digitCount + 1, "%lf", target);
 
     return buffer;
 }
@@ -605,7 +631,7 @@ siteVar* BC_ArrayToSiteVar(char* name, char* exp, siteVar* variables) {
 				break;
 			}
 			default: { //its a variable
-				siteVar* arrayVal = BC_StrToVariable(arrayVal, variables, variables);
+				siteVar* arrayVal = BC_StrToVariable(arrayVar, variables, variables);
 				if (!arrayVal) {
 					siteVarFree(arrayVal);
 					goto failure;

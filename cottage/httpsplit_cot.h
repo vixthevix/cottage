@@ -25,27 +25,17 @@ but thats pretty much it
 
 
 #include "dependencies_cot.h"
+#include "routefunction_cot.h"
 #include "stringmap_cot.h"
 #include "routemap_cot.h"
 #include "sitevar_cot.h"
 #include "fopen_cot.h"
 
+
 //rename ERROR if conflicts with other enum types
-typedef enum HTTPTYPE {
-    ERROR = -1,
-    GET,
-    PUT,
-    POST,
-    DELETE,
-    PATCH,
-    HEAD,
-    OPTIONS,
-    TRACE,
-    CONNECT,
-} HTTPTYPE;
 
 HTTPTYPE StrToHTTPTYPE(char* data) {
-    if (!data) return ERROR;
+    if (!data) return UNKNOWN;
 
     if (!strcmp(data, "GET")) return GET;
     if (!strcmp(data, "PUT")) return PUT;
@@ -57,11 +47,11 @@ HTTPTYPE StrToHTTPTYPE(char* data) {
     if (!strcmp(data, "TRACE")) return TRACE;
     if (!strcmp(data, "CONNECT")) return CONNECT;
 
-    return ERROR;
+    return UNKNOWN;
 }
 
 float StrToHttpVersion(char* data) {
-    if (!data) return ERROR;
+    if (!data) return UNKNOWN;
 
     if (!strcmp(data, "HTTP/0.9")) return 0.9;
     if (!strcmp(data, "HTTP/1.0")) return 1.0;
@@ -73,15 +63,6 @@ float StrToHttpVersion(char* data) {
 
 }
 
-typedef struct HttpRequest {
-    char* target; //8 bytes
-    stringMap* options; //8 bytes
-    char* payload; //8 bytes
-    
-    float version; //4 bytes, if double then 8 bytes
-    HTTPTYPE type; //4 bytes
-} HttpRequest;
-
 bool HttpRequestFree(HttpRequest request) {
     if (request.target) free(request.target);
     if (request.options) strMapFree(request.options);
@@ -91,7 +72,7 @@ bool HttpRequestFree(HttpRequest request) {
 }
 
 bool HttpRequestValid(HttpRequest request) {
-    return (request.target && request.options && request.payload && (request.type > ERROR) && (request.version > -1));
+    return (request.target && request.options && request.payload && (request.type > UNKNOWN) && (request.version > -1));
 }
 
 
@@ -101,7 +82,7 @@ HttpRequest splitHttpRequest(char* data) {
         .options = NULL,
         .payload = NULL,
         .version = -1,
-        .type = ERROR
+        .type = UNKNOWN
     };
 
 
@@ -110,7 +91,7 @@ HttpRequest splitHttpRequest(char* data) {
         .options = NULL,
         .payload = NULL,
         .version = -1,
-        .type = ERROR
+        .type = UNKNOWN
     };
 
     //check for valid data
@@ -327,7 +308,7 @@ siteVar* offloadToVariables(char* offload) {
                 //we have to get the type of our data, then insert it
                 //key remains the same
                 VARTYPE type = BC_StrToType(value);
-                if (type != ERROR) {
+                if (type != UNKNOWN) {
 
                     void* data;
                     switch (type) {
@@ -407,7 +388,7 @@ siteVar* offloadToVariables(char* offload) {
         //we have to get the type of our data, then insert it
         //key remains the same
         VARTYPE type = BC_StrToType(value);
-        if (type != ERROR) {
+        if (type != UNKNOWN) {
 
             void* data;
             switch (type) {
