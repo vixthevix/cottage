@@ -76,6 +76,8 @@ bool HttpRequestValid(HttpRequest request) {
 }
 
 
+
+
 HttpRequest splitHttpRequest(char* data) {
     HttpRequest error = {
         .target = NULL,
@@ -115,7 +117,7 @@ HttpRequest splitHttpRequest(char* data) {
                 request.type = StrToHTTPTYPE(buffer);
             }
             else if (item == 1) { //target
-                request.target = malloc(strlen(buffer) + 1);
+                request.target = (char*) malloc(strlen(buffer) + 1);
                 strcpy(request.target, buffer);
                 request.target[strlen(buffer)] = 0;
             }
@@ -308,7 +310,7 @@ siteVar* offloadToVariables(char* offload) {
                 //we have to get the type of our data, then insert it
                 //key remains the same
                 VARTYPE type = BC_StrToType(value);
-                if (type != UNKNOWN) {
+                if (type != ERROR) {
 
                     void* data;
                     switch (type) {

@@ -52,13 +52,31 @@ int serverInit(const char* address, const char* port, bool passive) {
 }
 
 bool serverListen(int socketfd, int maxClientCount) {
-    return listen(socketfd, maxClientCount) <= -1;
+    return listen(socketfd, maxClientCount) > -1;
 }
 
 //may change to one parameter only 
 //if client address specification really not needed
 int serverAcceptClient(int socketfd, struct sockaddr* clientAddress, socklen_t* clientAddressLength) {
     return accept(socketfd, clientAddress, clientAddressLength);
+}
+
+char* serverGetRequest(int clientfd) {
+    const int bufferSize = 2048;
+
+    char* buffer = (char*) calloc(bufferSize, sizeof(char));
+    int bytesrecv = recv(clientfd, buffer, bufferSize, 0);
+    if (bytesrecv > 0) return buffer; 
+    else {
+        free(buffer);
+        return NULL;
+    }
+}
+
+bool serverCloseClient(int clientfd) {
+    //clientreqfree(request);
+    shutdown(clientfd, SHUT_WR);
+    close(clientfd); //end current interraction
 }
 
 int serverClose(int socketfd) {
