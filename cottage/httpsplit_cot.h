@@ -25,11 +25,13 @@ but thats pretty much it
 
 
 #include "dependencies_cot.h"
+#include "manager_cot.h"
 #include "routefunction_cot.h"
 #include "stringmap_cot.h"
 #include "routemap_cot.h"
 #include "sitevar_cot.h"
 #include "fopen_cot.h"
+#include <threads.h>
 
 
 //rename ERROR if conflicts with other enum types
@@ -72,7 +74,7 @@ bool HttpRequestFree(HttpRequest request) {
 }
 
 bool HttpRequestValid(HttpRequest request) {
-    return (request.target && request.options && request.payload && (request.type > UNKNOWN) && (request.version > -1));
+    return (request.target && request.options && (request.type > UNKNOWN) && (request.version > -1));
 }
 
 
@@ -98,7 +100,7 @@ HttpRequest splitHttpRequest(char* data) {
 
     //check for valid data
     if (!data || strlen(data) == 0) return error;
-
+    //printf("data valid\n");
     //first line has type, target and version, separated by spaces
 
     char buffer[512] = {0};
@@ -110,9 +112,10 @@ HttpRequest splitHttpRequest(char* data) {
     size_t dataLen = strlen(data);
 
     for (; dataIndex < (dataLen - 1); dataIndex++) {
-        if (data[dataIndex] != ' ' || (data[dataIndex] != '\r' && data[dataIndex + 1] != '\n')) 
+        if (data[dataIndex] != ' ' && (data[dataIndex] != '\r' && data[dataIndex + 1] != '\n')) 
             buffer[bufferIndex++] = data[dataIndex];
         else {
+            ////printf("buffer: %s\n", buffer);
             if (item == 0) { //type
                 request.type = StrToHTTPTYPE(buffer);
             }
@@ -124,13 +127,15 @@ HttpRequest splitHttpRequest(char* data) {
             else { //version
                 request.version = StrToHttpVersion(buffer);
             }
-            item += 1;
             memset(buffer, 0, bufferIndex);
             bufferIndex = 0;
 
             if (item > 1) break;
+            item += 1;
         }
     }
+
+    //debugHttpRequest(request);
 
     if ((data[dataIndex] == '\r' && data[dataIndex + 1] == '\n') || dataIndex >= dataLen) dataIndex += 2;
     else {
@@ -147,14 +152,20 @@ HttpRequest splitHttpRequest(char* data) {
 
     //enable the stringmap
 
+    //printf("enabling stringmap\n");
+    //problem here
+
     request.options = strMapInit();
 
     while (dataIndex < (dataLen - 1)) {
         if (data[dataIndex] != '\r' && data[dataIndex + 1] != '\n') {
+            ////printf("writing...\n");
             buffer[bufferIndex++] = data[dataIndex++];
         }
         else {
+            ////printf("buffer is %s\n", buffer);
             if (!buffer[0]) { //is buffer empty?
+                //printf("buffer empty\n");
                 break;
             }
             dataIndex += 2;
@@ -167,11 +178,12 @@ HttpRequest splitHttpRequest(char* data) {
             int optvalIndex = 0;
             bool colonFound = false;
             for (int i = 0; i < strlen(buffer); i++) {
-                if (buffer[i] == ':') {
+                if (buffer[i] == ':' && !colonFound) {
                     colonFound = true;
                     optvalIndex = 0;
                     //there could be spaces in front of colon, remove them
                     while (buffer[++i] == ' ');
+                    i--;
                     continue;
                 }
 
@@ -184,12 +196,15 @@ HttpRequest splitHttpRequest(char* data) {
             }
 
             //now just insert them
-            strMapInsert(request.options, option, value);
+            //printf("%s:%s\n", option, value);
+            strMapInsert(&request.options, option, value);
+            //printf("string map inserted\n");
             memset(buffer, 0, bufferIndex);
             bufferIndex = 0;
+            //printf("buffer reset\n");
         }
     }
-    
+    //printf("stringmap filled\n");
     //stringmap is now filled up
     if ((data[dataIndex] == '\r' && data[dataIndex + 1] == '\n') || dataIndex >= dataLen) dataIndex += 2;
     else {
@@ -199,9 +214,14 @@ HttpRequest splitHttpRequest(char* data) {
 
     //finally we have our offload
     //just copy it over
-    request.payload = (char*) malloc(dataLen - dataIndex + 1);
-    memcpy(request.payload, data + dataIndex, dataLen - dataIndex);
-    request.payload[strlen(request.payload)] = 0;
+    //we may not have an offload, so keep that in mind
+    if (dataLen > dataIndex) {
+        request.payload = (char*) malloc(dataLen - dataIndex + 1);
+        memcpy(request.payload, data + dataIndex, dataLen - dataIndex);
+        request.payload[strlen(request.payload)] = 0;
+    }
+    else request.payload = NULL;
+
 
     return request;
 }
@@ -231,6 +251,7 @@ everything must be explicitly defined.
 bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteMap* routes) {
     if (!HttpRequestValid(request) || !routes) return false;
 
+    //printf("handling requests\n");
 
     char link[512] = {0};
     int index = 0;
@@ -240,36 +261,65 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
         index++;
     }
 
-    //with this link, we can get our routes
-
     RouteEntry route = RouteMapGet(routes, link);
-
+    
     //for now, nothing happens if NULL
     //but maybe perform an error 405 method not allowed block
 
+
     switch (request.type) {
         case GET: {
-            if (route.routeGet) route.routeGet(request, clientfd, extraData);
+            //printf("route is GET\n");
+            if (route.routeGet) {
+                route.routeGet(request, clientfd, extraData);
+                goto success;
+            }
             break;
         }
         case POST: {
-            if (route.routePost) route.routePost(request, clientfd, extraData);
+            if (route.routePost) {
+                route.routePost(request, clientfd, extraData);
+                goto success;
+            }
             break;
         }
         case PUT: {
-            if (route.routePut) route.routePut(request, clientfd, extraData);
+            if (route.routePut) {
+                route.routePut(request, clientfd, extraData);
+                goto success;
+            }
             break;
         }
         case DELETE: {
-            if (route.routeDelete) route.routeDelete(request, clientfd, extraData);
+            if (route.routeDelete) {
+                route.routeDelete(request, clientfd, extraData);
+                goto success;
+            }
             break;
         }
         default: {
             //do nothing
+            //printf("route is INVALID\n");
             break;
         }
     }
 
+    //if the request type is not valid, we look at the assets folder
+    //we clean up link, prepend the asset folder, and then check there
+    char* linkClean = cleanupPath(link);
+    char* linkAsset = prependAssetFolder(linkClean);
+
+    bool fileSent = sendFile(linkAsset, clientfd, extraData);
+    free(linkClean);
+    free(linkAsset);
+
+    if (!fileSent) {
+        printf("stylesheet not sent\n");
+        return false;
+    }
+
+
+    success:
     return true;
 
 }
@@ -469,8 +519,9 @@ siteVar* offloadToVariables(char* offload) {
 
 
 bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath) {
-    if (!HttpRequestValid(request) || !extraVariables || request.type != GET) return false;
+    if (!HttpRequestValid(request)  || request.type != GET) return false;
 
+    //printf("default get\n");
     //filePath has our direct link.
     //we need our offload though, we can use strstr for this conveniently
 

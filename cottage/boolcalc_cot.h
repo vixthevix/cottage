@@ -352,8 +352,13 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 			//composites are another story, that goes earlier
 
 
-			siteVar* a = stack[sp--];
-			siteVar* b = stack[sp--];
+			siteVar* a = stack[sp];
+			stack[sp] = NULL;
+			sp--;
+
+			siteVar* b = stack[sp];
+			stack[sp] = NULL;
+			sp--;
 
 			if ((a->type == STRING && b->type != STRING) || (b->type == STRING && a->type != STRING)) {
 				//uhhhh idk return 0
@@ -484,14 +489,17 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 					default:  result = false; break;
 				}
 				stack[++sp] = siteVarInit("", BOOL, 1, &((bool){result}));
+				printf("error probably here\n");
 				siteVarFree(a);
 				siteVarFree(b);
 				a = NULL;
 				b = NULL;
+				printf("error probably not here\n");
 
 			}
 			free(aVal);
 			free(bVal);
+			printf("error maybe here?\n");
 		}
 	}
 

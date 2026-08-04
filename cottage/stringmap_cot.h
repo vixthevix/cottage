@@ -47,7 +47,7 @@ stringMap* strMapNewSize(const unsigned int oldSize) {
 }
 
 stringMap* strMapInit() {
-    const unsigned int initSize = 8 >> 1; //start with size of 16
+    const unsigned int initSize = 8 >> 1; //start with size of 8
     return strMapNewSize(initSize);
 }
 
@@ -62,7 +62,7 @@ int strMapFree(stringMap* strMap) {
     return 1;
 }
 
-int strMapInsert(stringMap* strMap, char* key, char* value);
+int strMapInsert(stringMap** strMap, char* key, char* value);
 
 
 stringMap* strMapResize(stringMap* strMap) { //currently only resize upwards, since deleting items isnt in the current scope
@@ -78,46 +78,55 @@ stringMap* strMapResize(stringMap* strMap) { //currently only resize upwards, si
             char* newval = (char*) malloc(strlen(strMap->items[i]->value));
             strcpy(newval, strMap->items[i]->value);
 
-            strMapInsert(newmap, newkey, newval);
+            strMapInsert(&newmap, newkey, newval);
     
         }
     }
     strMapFree(strMap);
+
+    
+    //printf("newmap:\ncount: %u, capacity: %u\n", newmap->count, newmap->capacity);
 
     return newmap;
 
 }
 
 
-int strMapInsert(stringMap* strMap, char* key, char* value) {
+int strMapInsert(stringMap** strMap, char* key, char* value) {
     if (!key || !value || !strMap) return 1;
     
-    const unsigned int load = strMap->count * 100 / strMap->capacity;
-    if (load > 60) strMap = strMapResize(strMap);
+    const unsigned int load = (*strMap)->count * 100 / (*strMap)->capacity;
+    if (load > 60) {
+        //printf("count: %u, capacity: %u, load: %u\n", (*strMap)->count, (*strMap)->capacity, load);
+        //printf("resizing...\n");
+        (*strMap) = strMapResize((*strMap));
+        //printf("resizing done\n");
+        //printf("count: %u, capacity: %u, load: %u\n", (*strMap)->count, (*strMap)->capacity, load);
+    }
     
     stringPair* newpair = strPairInit(key, value);
-    unsigned int initpos = stringHash(key) % strMap->capacity;
+    unsigned int initpos = stringHash(key) % (*strMap)->capacity;
     unsigned int index;
     stringPair* curpair;
 
-    for (unsigned int i = 0; i < strMap->capacity; i++) {
-        index = (initpos + i) % strMap->capacity;
-        curpair = strMap->items[index];
+    for (unsigned int i = 0; i < (*strMap)->capacity; i++) {
+        index = (initpos + i) % (*strMap)->capacity;
+        curpair = (*strMap)->items[index];
 
         if (curpair == NULL) { //empty
-            strMap->items[index] = newpair;
-            strMap->count++;
+            (*strMap)->items[index] = newpair;
+            (*strMap)->count++;
             return 1;
         }
 
         if (strcmp(curpair->key, key) == 0) {//value with same key so replace
-            strPairFree(strMap->items[index]);
-            strMap->items[index] = newpair;
+            strPairFree((*strMap)->items[index]);
+            (*strMap)->items[index] = newpair;
             return 1;
         }
 
         if (newpair->pd > curpair->pd) { //round robin
-            strMap->items[index] = newpair;
+            (*strMap)->items[index] = newpair;
             newpair = curpair;
         }
 
@@ -175,7 +184,7 @@ stringMap* strMapCombine(stringMap* intruder, stringMap* home) {
             stringPair* cur = home->items[i];
             if (!cur) continue;
             //will create new strings, so two new pointers. no worry of deletion
-            strMapInsert(new, cur->key, cur->value);
+            strMapInsert(&new, cur->key, cur->value);
         }
         return new;
     }
@@ -184,7 +193,7 @@ stringMap* strMapCombine(stringMap* intruder, stringMap* home) {
             stringPair* cur = intruder->items[i];
             if (!cur) continue;
 
-            strMapInsert(new, cur->key, cur->value);
+            strMapInsert(&new, cur->key, cur->value);
         }
         return new;
     }
@@ -200,7 +209,7 @@ stringMap* strMapCombine(stringMap* intruder, stringMap* home) {
         stringPair* cur = home->items[i];
         if (!cur) continue;
         //will create new strings, so two new pointers. no worry of deletion
-        strMapInsert(new, cur->key, cur->value);
+        strMapInsert(&new, cur->key, cur->value);
     }
 
     //then we insert the intruder into home
@@ -208,7 +217,7 @@ stringMap* strMapCombine(stringMap* intruder, stringMap* home) {
         stringPair* cur = intruder->items[i];
         if (!cur) continue;
 
-        strMapInsert(new, cur->key, cur->value);
+        strMapInsert(&new, cur->key, cur->value);
     }
 
     //finally we free both original maps

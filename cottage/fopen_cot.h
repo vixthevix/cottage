@@ -1,6 +1,7 @@
 #ifndef FOPEN_COT
 #define FOPEN_COT
 
+#include "conversion_cot.h"
 #include "dependencies_cot.h"
 #include "boolcalc_cot.h"
 #include "sitevar_cot.h"
@@ -229,8 +230,10 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 //char* value = qmapGet(variables, offload);
                 siteVar* var = BC_StrToVariable(offload, variables, variables);
                 if (!var) goto failure;
+                printf("WOOO\n");
                 //we need to convert this value into a string
                 char* value = BC_VariableToString(var, 0);
+                printf("VAR VALUE: %s\n", value);
                 if (value) {
                     //write into data
                     for (int j = 0; j < strlen(value); j++, di++) {
@@ -304,7 +307,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                         //we have a value and pair
                         if (curVar && curValue) {
 
-
+                            printf("fopen: curVar is %s and curValue is %s\n", curVar, curValue);
                             //curVar is the name, curValue is the value
                             //we check the basic types first (int -> string) and put in as siteVar
                             //we also check if its an array by checking for []
@@ -320,6 +323,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                             //first, check if its a number
                             //a string, or a variable
                             if (BC_isUInt(curValue)) {
+                                printf("ITS A UINT\n");
                                 siteVarCompositeInsertNew(newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
                             }
                             else if (BC_isInt(curValue)) {
@@ -386,6 +390,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 //THEN copy it over.
                 if (!isVar) {
                     if (curVar && curValue) {
+                        printf("fopen: curVar is %s and curValue is %s\n", curVar, curValue);
                         if (BC_isUInt(curValue)) {
                             siteVarCompositeInsertNew(newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
                         }
@@ -404,7 +409,16 @@ char* openHTML(const char* filepath, siteVar* variables) {
                             //BC_delAt(curValue, 0);
                             //BC_delAt(curValue, strlen(curValue) - 1);
                             //qmapInsert(newVariables, curVar, curValue);
-                            siteVarCompositeInsertNew(newVariables, curVar, STRING, 1, &((string_cot){BC_StrToStr(curValue)}));
+                            char* curValueStripped = BC_StrToStr(curValue); 
+                            printf("IS STRING: %s\n", curValueStripped);
+                            siteVarCompositeInsertNew(newVariables, curVar, STRING, 1, &curValueStripped);
+                            
+                            //try getting back the variable
+                            siteVar* strAccess = siteVarCompositeAccess(newVariables, curVar);
+                            if (strAccess) {
+                                printf("strAccess returns name: %s, value: %s\n", strAccess->name, *(char**)siteVarAccess(strAccess));
+                            }
+
                         }
                         else if (BC_isArray(curValue)) { //NEXT TASK
 

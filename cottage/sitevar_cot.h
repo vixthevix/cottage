@@ -97,6 +97,7 @@ typedef siteVar* composite_cot;
 bool siteVarFree(siteVar* target);
 siteVar* INTERNAL_siteVarCompositeResize(siteVar* target);
 siteVar* siteVarInit(char* name, VARTYPE type, size_t size, void* data);
+void* siteVarAccess(siteVar* target);
 siteVar* siteVarClone(siteVar* target);
 size_t INTERNAL_siteVarTypeSize(VARTYPE type);
 
@@ -139,7 +140,7 @@ bool siteVarCompositeInsert(siteVar* target, siteVar* var) {
 
         if (curVar == NULL) {
             //new->pd++;
-            printf("%s stored at index %lu inside of %s\n", new->name, index, target->name);
+            printf("(%s, %s) stored at index %lu inside of %s\n", new->name, (char*)siteVarAccess(new), index, target->name);
             targetData[index] = new;
             target->arrayItemCount++;
             return true;
@@ -199,7 +200,8 @@ siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
         //returning a reference here
         //nope now returning a clone
         if (!strcmp(curVar->name, name)) {
-            printf("curVar name is %s, curVar value is %s\n", curVar->name, (char*)curVar->data);
+            if (curVar->type == STRING) printf("%s is a string\n", curVar->name);
+            printf("curVar name is %s, curVar value is %u\n", curVar->name, *((uint_cot*)curVar->data));
             return siteVarClone(curVar);
         }
 
@@ -352,7 +354,6 @@ siteVar* siteVarInit(char* name, VARTYPE type, size_t elementCount, void* data) 
         target->data = calloc(elementCount, sizeof(string_cot));
         //for each string in the array, we must also allocate data for them.
         //we store an array of these addresses, then memcpy it over
-        size_t addresses[elementCount];
         string_cot* stringArray = (string_cot*) data;
         string_cot* targetData = (string_cot*) target->data;
         for (size_t i = 0; i < elementCount; i++) {
@@ -460,6 +461,13 @@ void* siteVarAccessAt(siteVar* target, size_t index) {
     //uses pointer arithmetic
 
     void* data = malloc(size);
+    void* address = (target->data + (size * index));
+
+    // if (target->type == STRING) {
+
+
+    // }
+
     memcpy(data, (target->data + (size * index)), size);
 
     return data;

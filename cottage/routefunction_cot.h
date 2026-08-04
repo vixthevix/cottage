@@ -39,6 +39,20 @@ typedef struct HttpRequest {
     HTTPTYPE type; //4 bytes
 } HttpRequest;
 
+void debugHttpRequest(HttpRequest request) {
+    
+    
+    printf(
+        "REQUEST DEBUG\n"
+        "TARGET:%s\n"
+        "PAYLOAD:%s\n"
+        "VERSION:%f\n"
+        "TYPE:%i\n",
+        request.target, request.payload, request.version, request.type
+    );
+
+}
+
 
 typedef bool (*RouteFunction)(HttpRequest request, int clientfd, siteVar* extraData);
 

@@ -1,5 +1,5 @@
 <html>
-    <link rel="stylesheet" href="main.css" type="text/css">
+    <link rel="stylesheet" href="styles/main.css" type="text/css">
     <!-- <head>
         <link rel="icon" href="data:,">
     </head> -->
@@ -19,26 +19,27 @@
         we need a way to check WHEN to check for brackets -->
         <!-- x is set to {{VAR:x}} -->
         <br>
-         fart is {{VAR:fart}}
+         <!-- fart is {{VAR:fart}} -->
+
 
          <!-- Probably have a qmap for component name to location -->
-         {{INSERT:templates/components/greeting.html}}
-         {{INSERT:templates/components/greeting.html}}
+         {{INSERT:templates/components/greeting.html;name="Victor"}}
+         <!-- {{INSERT:templates/components/greeting.html}} -->
 
          {{INSERT:templates/cool.html}}
         
          <br>
-         <!-- <img src="../images/xqc.gif" alt="xqc" width="100" height="100"> -->
+         <img src="images/xqc.gif" alt="xqc" width="100" height="100">
 
         <!-- FULL IF-ELSEIF-ELSE -->
-        <!-- {{INSERT:templates/components/displayName.html;name="Victor",age=0,greeting="What is up ladies, "}} -->
-        
+        {{INSERT:templates/components/displayName.html;name="Victor",age=100,greeting="What is up ladies, "}}
+        <!-- {{INSERT:templates/components/displayName.html;name=0,age=0,greeting=0}} -->
 
-         {{INSERT:templates/components/displayName.html;name="Victor",age=20,greeting="What is up guys, "}}
-         {{INSERT:templates/components/displayName.html;name=name,age=x,greeting=greeting}}
+         <!-- {{INSERT:templates/components/displayName.html;name="Victor",age=20,greeting="What is up guys, "}} -->
+         <!-- {{INSERT:templates/components/displayName.html;name=name,age=x,greeting=greeting}} -->
 
          <!-- yeah so dont do this -->
-         <!-- {INSERT:templates/main.html} -->
+         <!-- {{INSERT:templates/main.html}} -->
           <!-- {{IF:(x==67)}}
             x really is 67
             <br>

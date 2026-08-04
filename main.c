@@ -1,3 +1,5 @@
+#include "cottage/manager_cot.h"
+#include "cottage/routefunction_cot.h"
 #define COTTAGE_START
 #include "cottage/cottage.h"
 
@@ -11,7 +13,12 @@ components, stylesheets, and stuff like this.
 For testing purposes, dont make it global right now.
 For release, yeah make global stuff.
 
+1/8/2026 update
+need to analyse whats wrong with cottage and fix that
 
+also, make shell scripts / C executables for making routes
+place these helper scripts into a cottage/help folder
+make a makefile to compile the helper scripts.
 
 */
 
@@ -22,6 +29,14 @@ NewRouteFunction(homeGet) {
 
 
 int main(void) {
+
+    // const char* testString = "/hello";
+    // char* cleanedString = cleanupPath(testString);
+    // printf("huh\n");
+    // printf("cleanedString: %s\n", cleanedString);
+    // free(cleanedString);
+
+    cottageInit();
 
     const char* ADDRESS = "0.0.0.0";
     const char* PORT = "8080";
@@ -45,20 +60,22 @@ int main(void) {
 
 
     //the routemap
-    RouteMap* routes = RouteMapInit();
-    RouteMapInsert(routes, "/", home);
+    
+    newRoute("/", home);
 
     while (true) {
         int clientfd = serverAcceptClient(socketfd, NULL, NULL);
         if (clientfd < 0) continue;
         char* clientOffload = serverGetRequest(clientfd);
+        //printf("client offload is \n%s\n", clientOffload);
         HttpRequest request = splitHttpRequest(clientOffload);
-
+        debugHttpRequest(request);
         //we have no extra data
         //we have a request
         //now we just wire up the routeMap
+        //printf("NEW CLIENT\n");
 
-        if (!handleRequest(request, clientfd, NULL, routes)) {
+        if (!handleRequest(request, clientfd, NULL, globalRoutes)) {
             printf("could not handle request\n");
             sendError(clientfd, ERROR_404);
         }

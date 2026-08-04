@@ -481,6 +481,11 @@ siteVar* BC_StrToVariable(char* exp, siteVar* variables, siteVar* originalVariab
 //conversions from type to string, like itoa
 
 char* BC_IntToStr(int_cot target) {
+	if (target == 0) {
+		char* buffer = (char*) calloc(2, sizeof(char));
+		sprintf(buffer, "0");
+		return buffer;
+	}
     //to get the number of digits, use log base 10, truncate it, then add 1
     size_t digitCount = ((size_t)log10(target)) + 1;
     char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
@@ -491,6 +496,11 @@ char* BC_IntToStr(int_cot target) {
 }
 
 char* BC_UIntToStr(uint_cot target) {
+	if (target == 0) {
+		char* buffer = (char*) calloc(2, sizeof(char));
+		sprintf(buffer, "0");
+		return buffer;
+	}
     //to get the number of digits, use log base 10, truncate it, then add 1
     size_t digitCount = ((size_t)log10(target)) + 1;
     char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
@@ -531,7 +541,9 @@ char* BC_VariableToString(siteVar* variable, size_t index) {
         }
         case UINT: {
             uint_cot* value = (uint_cot*)siteVarAccessAt(variable, index);
+			printf("uint value is %u\n", *value);
             char* buffer = BC_UIntToStr(*value);
+			printf("buffer made\n");
             free(value);
             return buffer;
         }
@@ -547,6 +559,11 @@ char* BC_VariableToString(siteVar* variable, size_t index) {
             free(value);
             return buffer;
         }
+		case STRING: {
+			string_cot* value = (string_cot*)siteVarAccessAt(variable, index);
+            return *value;
+
+		}
         default: {
             //just return the name
             // char* buffer = (char*) calloc(strlen(variable->name) + 1, sizeof(char));
