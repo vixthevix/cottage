@@ -5,9 +5,10 @@
 #include "dependencies_cot.h"
 #include "boolcalc_cot.h"
 #include "sitevar_cot.h"
+#include "init_cot.h"
 
 bool sendNormal(char* filepath, char* type, int client) {
-
+    cottageCheck(false);
     char header[128] = {0};
     char* headerptr = header;
     sprintf(headerptr, 
@@ -46,6 +47,7 @@ bool sendNormal(char* filepath, char* type, int client) {
 //need it to open a file within a file
 //just copy paste stuff over
 char* openHTML(const char* filepath, siteVar* variables) {
+    cottageCheck(NULL);
     //first, prepare the html
     FILE* file = fopen(filepath, "r");
     if (!file) return NULL;
@@ -574,6 +576,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
 //lets make a function for sending over an html file
 bool sendHTML(const char* filepath, int client, siteVar* variables) {
+    cottageCheck(false);
     //first, prepare the html
 
     char* data = openHTML(filepath, variables);
@@ -612,6 +615,7 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
 //this can be html, an image, js, whatever
 //to do this, we check the file endings
 bool sendFile(char* filepath, int client, siteVar* vars) {
+    cottageCheck(false);
     //first, check if this file actually exists
     if (access(filepath, F_OK) == 0) {
         //second, read the file ending
@@ -628,7 +632,8 @@ bool sendFile(char* filepath, int client, siteVar* vars) {
     }
 }
 
-int sendRediret(const char* path, int client) {
+bool sendRediret(const char* path, int client) {
+    cottageCheck(false);
     char response[512];
     int len = sprintf(response,
         "HTTP/1.1 303 See Other\r\n"
@@ -638,7 +643,7 @@ int sendRediret(const char* path, int client) {
         "\r\n",
         path);
     send(client, response, len, 0);
-    return 1;
+    return true;
 }
 
 #endif

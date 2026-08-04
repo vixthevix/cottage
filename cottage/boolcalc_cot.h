@@ -28,12 +28,13 @@ var.subvar => variable stored inside composite. can be subvar.subsubvar or subva
 #include "dependencies_cot.h"
 #include "sitevar_cot.h"
 #include "conversion_cot.h"
+#include "init_cot.h"
 
 
 //removes all spaces, and turns double operators into single ones. also performs check.
 //do not delete spaces inside of strings
 char* BC_format(char* expression) {
-
+	cottageCheck(NULL);
 	char* new = (char*) calloc(strlen(expression) + 1, sizeof(char));
 	strcpy(new, expression);
 
@@ -110,6 +111,7 @@ char* BC_format(char* expression) {
 }
 
 bool BC_isOperator(char c) {
+	cottageCheck(false);
 	return (c == '<' || c == '>' || c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
 }
 
@@ -121,11 +123,13 @@ bool BC_isOperator(char c) {
 
 //takes into account negative sign
 bool BC_isReadableValue(char c) {
+	cottageCheck(false);
 	//return (isalnum(c) || c == '"' || c == '\'' || c == '-');
 	return (isalnum(c) || c == '"' || c == '-' || c == '.' || c == '[' || c == ']');
 }
 
 char* BC_transform(const char* expression) {
+	cottageCheck(NULL);
 	int size = strlen(expression);
 	char* result = (char*) calloc(size * 2, sizeof(char));
 	int resultIndex = 0;
@@ -204,6 +208,7 @@ string comparison (includes single character strings)
 */
 
 bool BC_evaluate(const char* expression, siteVar* variables) {
+	cottageCheck(false);
 	//check if the variables are initialised properly
 	if (!variables || variables->type != COMPOSITE) return false;
 	

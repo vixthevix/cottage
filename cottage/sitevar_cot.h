@@ -26,6 +26,7 @@ Right now, everything is stored as a string, including numbers.
 */
 #include "dependencies_cot.h"
 #include "hashfunc_cot.h"
+#include "init_cot.h"
 
 // typedef enum VARTYPE {
 //     INT8,
@@ -102,6 +103,7 @@ siteVar* siteVarClone(siteVar* target);
 size_t INTERNAL_siteVarTypeSize(VARTYPE type);
 
 siteVar* INTERNAL_siteVarCompositeNewSize(const size_t oldSize) {
+    cottageCheck(NULL);
     const size_t newSize = oldSize << 1;
     siteVar* newVar = malloc(sizeof(siteVar));
     newVar->arrayLen = newSize;
@@ -117,6 +119,7 @@ siteVar* INTERNAL_siteVarCompositeNewSize(const size_t oldSize) {
 //#define siteVarInsertVar siteVarCompositeInsert
 
 bool siteVarCompositeInsert(siteVar* target, siteVar* var) {
+    cottageCheck(false);
     if (!target || !var) return 0;
     if (target->type != COMPOSITE) return 0;
     
@@ -168,14 +171,17 @@ bool siteVarCompositeInsert(siteVar* target, siteVar* var) {
     return false;
 }
 
-int siteVarCompositeInsertNew(siteVar* target, char* name, VARTYPE type, size_t size, void* data){
+bool siteVarCompositeInsertNew(siteVar* target, char* name, VARTYPE type, size_t size, void* data){
+    cottageCheck(false);
     siteVar* new = siteVarInit(name, type, size, data);
-    siteVarCompositeInsert(target, new);
+    bool state = siteVarCompositeInsert(target, new);
     siteVarFree(new);
+    return state;
 }
 
 //#define siteVarCompositeAccess siteVarCompositeGet
 siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
+    cottageCheck(NULL);
     if (!target || target->type != COMPOSITE) return 0;
     
     size_t hashed = stringHash(name);
@@ -234,7 +240,7 @@ so ill go with creation for now :)
 */
 //#define siteVarCombine siteVarCompositeCombine
 siteVar* siteVarCompositeCombine(siteVar* home, siteVar* intruder) {
-    
+    cottageCheck(NULL);
     if (!intruder || !home) return NULL;
     if (intruder->type != COMPOSITE || intruder->type != COMPOSITE) return NULL;
 
@@ -254,6 +260,7 @@ siteVar* siteVarCompositeCombine(siteVar* home, siteVar* intruder) {
 }
 
 siteVar* INTERNAL_siteVarCompositeResize(siteVar* target) {
+    cottageCheck(NULL);
     if (!target || target->type != COMPOSITE) return 0;
     siteVar* new = INTERNAL_siteVarCompositeNewSize(target->arrayLen);
 
@@ -280,6 +287,7 @@ siteVar* INTERNAL_siteVarCompositeResize(siteVar* target) {
 }
 
 void INTERNAL_siteVarInitComposite(siteVar* target, void* data, size_t dataSize) {
+    cottageCheck();
     if (!target || target->type != COMPOSITE) return;
     //we fix the arrayLen and arrayItemCount
     siteVar* newVar = INTERNAL_siteVarCompositeNewSize(8 >> 1); //start with size of 16
@@ -308,6 +316,7 @@ pretty much it, its more lenient than a normal languages,
 but if problems arise, we can always add to this
 */
 bool INTERNAL_siteVarNameLegal(char* name) {
+    cottageCheck(false);
 
     const char illegalCharacters[] = {
         '\'',
@@ -333,6 +342,7 @@ bool INTERNAL_siteVarNameLegal(char* name) {
  * 
  */
 siteVar* siteVarInit(char* name, VARTYPE type, size_t elementCount, void* data) {
+    cottageCheck(NULL);
     if (!INTERNAL_siteVarNameLegal(name)) return NULL;
     //if (!data) return NULL; //must put in some data
     
@@ -375,6 +385,7 @@ siteVar* siteVarInit(char* name, VARTYPE type, size_t elementCount, void* data) 
 }
 
 siteVar* siteVarClone(siteVar* target) {
+    cottageCheck(NULL);
     return siteVarInit(target->name, target->type, target->arrayLen, target->data);
 }
 
@@ -386,6 +397,7 @@ recursive case is when composite
 special case for strings
 */
 bool siteVarFree(siteVar* target) {
+    cottageCheck(false);
     if (!target) return false;
 
 
@@ -425,6 +437,7 @@ do we restrict this to the non-composites, for safety?
 
 
 size_t INTERNAL_siteVarTypeSize(VARTYPE type) {
+    cottageCheck(0);
     size_t size = 0;
     switch (type) {
         case INT:
@@ -451,6 +464,7 @@ size_t INTERNAL_siteVarTypeSize(VARTYPE type) {
 }
 
 void* siteVarAccessAt(siteVar* target, size_t index) {
+    cottageCheck(NULL);
     if (!target || target->type == COMPOSITE) return NULL;
     if (index >= target->arrayLen) return NULL;
 
@@ -474,11 +488,13 @@ void* siteVarAccessAt(siteVar* target, size_t index) {
 }
 
 void* siteVarAccess(siteVar* target) {
+    cottageCheck(NULL);
     return (!target->isArray) ? siteVarAccessAt(target, 0) : NULL;
 }
 
 
 bool siteVarUpdateRange(siteVar* target, uint16_t index, uint16_t range, void* data) {
+    cottageCheck(false);
     if (!target || target->type == COMPOSITE) return false;
     if (index >= target->arrayLen || (index + range) > target->arrayLen) return false;
     //special cases for these two, due to heap memory
@@ -520,10 +536,12 @@ bool siteVarUpdateRange(siteVar* target, uint16_t index, uint16_t range, void* d
 }
 
 bool siteVarUpdateAt(siteVar* target, uint16_t index, void* data) {
+    cottageCheck(false);
     return siteVarUpdateRange(target, index, 1, data);
 }
 
 bool siteVarUpdate(siteVar* target, void* data) {
+    cottageCheck(false);
     return (!target->isArray) ? siteVarUpdateAt(target, 0, data) : false;
 }
 
@@ -532,6 +550,7 @@ bool siteVarUpdate(siteVar* target, void* data) {
 //just implement pushBack for now
 
 bool siteVarInsert(siteVar* target, void* data) {
+    cottageCheck(false);
     if (!target || target->type == COMPOSITE) return false;
         
     size_t size = INTERNAL_siteVarTypeSize(target->type);
@@ -565,9 +584,6 @@ bool siteVarInsert(siteVar* target, void* data) {
 }
 
 #define siteVarTransfer(type, name, function) type name = *(type*)function
-
-
-
 
 #define siteVarTransfer(type, name, function) type name = *(type*)function
 

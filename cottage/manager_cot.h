@@ -27,11 +27,13 @@ put these into a separate file called "manager_cot.h"
 #include "dependencies_cot.h"
 #include "routemap_cot.h"
 #include "stringmap_cot.h"
+#include "init_cot.h"
 
 /*
     ROUTEMAP
 */
 RouteMap* globalRoutes;// = RouteMapInit();
+#define GLOBALROUTES globalRoutes
 
 bool newRoute(char* path, RouteEntry route) {
     return RouteMapInsert(globalRoutes, path, route);
@@ -40,20 +42,14 @@ RouteEntry getRoute(char* path) {
     return RouteMapGet(globalRoutes, path);
 }
 
-
-//have some setup booleans and such
-bool cottageInitialised = false;
-
-#define cottageCheck(returnVal) if (!cottageInitialised) return returnVal
-
 bool cottageInit() {
-    globalRoutes = RouteMapInit();
-
-    if (globalRoutes) {
+    if (!cottageInitialised) {
         cottageInitialised = true;
+        globalRoutes = RouteMapInit();
+        if (!globalRoutes) cottageInitialised = false;
+        return cottageInitialised;
     }
-
-    return cottageInitialised;
+    return false;
 }
 
 
@@ -84,7 +80,7 @@ this is the standard, and it would mean less boilerplate in the html and c code.
 const char* globalAssetFolder = "./assets/";
 
 char* prependAssetFolder(char* path) {
-
+    cottageCheck(NULL);
     char* newPath = (char*) calloc(strlen(globalAssetFolder) + strlen(path) + 1, sizeof(char));
     strcpy(newPath, globalAssetFolder);
     strcat(newPath, path);
@@ -94,6 +90,7 @@ char* prependAssetFolder(char* path) {
 //we can also make a cleanup path function
 
 char* cleanupPath(char* path) {
+    cottageCheck(NULL);
     //we have to read the string until the next '/' character
     //if equal to . or .., remove it
     char* newPath = (char*) calloc(strlen(path) + 1, sizeof(char));

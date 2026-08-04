@@ -15,6 +15,7 @@ and if not defined, default behaviour can occur, using the handle functions
 #include "dependencies_cot.h"
 #include "routefunction_cot.h"
 #include "sitevar_cot.h"
+#include "init_cot.h"
 
 
 typedef struct RoutePair {
@@ -29,7 +30,8 @@ typedef struct RouteMap {
     size_t capacity;
 } RouteMap;
 
-RoutePair* RoutePairInit(char* key, RouteEntry route) {    
+RoutePair* RoutePairInit(char* key, RouteEntry route) {
+    cottageCheck(NULL);    
     RoutePair* newpair = (RoutePair*) malloc(sizeof(RoutePair));
     newpair->key = (char*) malloc(strlen(key) + 1);
     strcpy(newpair->key, key);
@@ -40,12 +42,14 @@ RoutePair* RoutePairInit(char* key, RouteEntry route) {
 }
 
 void RoutePairFree(RoutePair* pair) {
+    cottageCheck();
     if (pair->key) free(pair->key);
     free(pair);
     pair = NULL;
 }
 
 RouteMap* RouteMapNewSize(const size_t oldSize) {
+    cottageCheck(NULL);
     const size_t newSize = oldSize << 1;
     RouteMap* newmap = (RouteMap*) malloc(sizeof(RouteMap));
     newmap->count = 0;
@@ -56,11 +60,13 @@ RouteMap* RouteMapNewSize(const size_t oldSize) {
 }
 
 RouteMap* RouteMapInit() {
+    cottageCheck(NULL);
     const size_t initSize = 8 >> 1; //initial size of 8
     return RouteMapNewSize(initSize);
 }
 
 void RouteMapFree(RouteMap* map) {
+    cottageCheck();
     for (size_t i = 0; i < map->capacity; i++) {
         if (map->items[i]) RoutePairFree(map->items[i]);
     }
@@ -72,6 +78,7 @@ void RouteMapFree(RouteMap* map) {
 bool RouteMapInsert(RouteMap* map, char* key, RouteEntry route);
 
 RouteMap* RouteMapResize(RouteMap* map) {
+    cottageCheck(NULL);
     RouteMap* newmap = RouteMapNewSize(map->capacity);
     newmap->count = map->count;
 
@@ -87,6 +94,7 @@ RouteMap* RouteMapResize(RouteMap* map) {
 }
 
 bool RouteMapInsert(RouteMap* map, char* key, RouteEntry route) {
+    cottageCheck(false);
     if (!key || !map) return false;
 
     const size_t load = map->count * 100 / map->capacity;
@@ -126,6 +134,7 @@ bool RouteMapInsert(RouteMap* map, char* key, RouteEntry route) {
 RouteEntry RouteMapGet(RouteMap* map, char* key) {
     RouteEntry error;
     memset(&error, 0, sizeof(RouteEntry));
+    cottageCheck(error);
     
     if (!map || !key) return error;
 

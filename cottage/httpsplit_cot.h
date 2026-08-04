@@ -25,7 +25,7 @@ but thats pretty much it
 
 
 #include "dependencies_cot.h"
-#include "manager_cot.h"
+#include "init_cot.h"
 #include "routefunction_cot.h"
 #include "stringmap_cot.h"
 #include "routemap_cot.h"
@@ -37,6 +37,7 @@ but thats pretty much it
 //rename ERROR if conflicts with other enum types
 
 HTTPTYPE StrToHTTPTYPE(char* data) {
+    cottageCheck(UNKNOWN);
     if (!data) return UNKNOWN;
 
     if (!strcmp(data, "GET")) return GET;
@@ -53,6 +54,7 @@ HTTPTYPE StrToHTTPTYPE(char* data) {
 }
 
 float StrToHttpVersion(char* data) {
+    cottageCheck(0);
     if (!data) return UNKNOWN;
 
     if (!strcmp(data, "HTTP/0.9")) return 0.9;
@@ -66,6 +68,7 @@ float StrToHttpVersion(char* data) {
 }
 
 bool HttpRequestFree(HttpRequest request) {
+    cottageCheck(false);
     if (request.target) free(request.target);
     if (request.options) strMapFree(request.options);
     if (request.payload) free(request.payload);
@@ -74,6 +77,7 @@ bool HttpRequestFree(HttpRequest request) {
 }
 
 bool HttpRequestValid(HttpRequest request) {
+    cottageCheck(false);
     return (request.target && request.options && (request.type > UNKNOWN) && (request.version > -1));
 }
 
@@ -88,6 +92,7 @@ HttpRequest splitHttpRequest(char* data) {
         .version = -1,
         .type = UNKNOWN
     };
+    cottageCheck(error);
 
 
     HttpRequest request = {
@@ -249,6 +254,7 @@ everything must be explicitly defined.
 */
 
 bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteMap* routes) {
+    cottageCheck(false);
     if (!HttpRequestValid(request) || !routes) return false;
 
     //printf("handling requests\n");
@@ -329,6 +335,7 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
 //maybe include extraVariables here who knows
 //but this will involve some encoding
 siteVar* offloadToVariables(char* offload) {
+    cottageCheck(NULL);
     if (!offload || strlen(offload) <= 0) return NULL;
     
     //look for equals and question marks
@@ -519,6 +526,7 @@ siteVar* offloadToVariables(char* offload) {
 
 
 bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath) {
+    cottageCheck(false);
     if (!HttpRequestValid(request)  || request.type != GET) return false;
 
     //printf("default get\n");

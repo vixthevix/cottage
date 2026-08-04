@@ -2,9 +2,11 @@
 #define TCPSETUP_COT
 
 #include "dependencies_cot.h"
+#include "init_cot.h"
 
 //TCP stuff
 int serverInit(const char* address, const char* port, bool passive) {
+    cottageCheck(-1);
     struct addrinfo settings, *results;
     int status, fd;
     
@@ -52,16 +54,19 @@ int serverInit(const char* address, const char* port, bool passive) {
 }
 
 bool serverListen(int socketfd, int maxClientCount) {
+    cottageCheck(false);
     return listen(socketfd, maxClientCount) > -1;
 }
 
 //may change to one parameter only 
 //if client address specification really not needed
 int serverAcceptClient(int socketfd, struct sockaddr* clientAddress, socklen_t* clientAddressLength) {
+    cottageCheck(-1);
     return accept(socketfd, clientAddress, clientAddressLength);
 }
 
 char* serverGetRequest(int clientfd) {
+    cottageCheck(NULL);
     const int bufferSize = 2048;
 
     char* buffer = (char*) calloc(bufferSize, sizeof(char));
@@ -74,12 +79,15 @@ char* serverGetRequest(int clientfd) {
 }
 
 bool serverCloseClient(int clientfd) {
+    cottageCheck(false);
     //clientreqfree(request);
     shutdown(clientfd, SHUT_WR);
     close(clientfd); //end current interraction
+    return true;
 }
 
 int serverClose(int socketfd) {
+    cottageCheck(-1);
     return close(socketfd);
 }
 

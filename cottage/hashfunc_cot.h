@@ -2,9 +2,11 @@
 #define HASHFUNC_COT
 
 #include "dependencies_cot.h"
+#include "init_cot.h"
 
 //will use djb2 hashing algorithm
 size_t stringHash(char* key) {
+    cottageCheck(0);
     unsigned int hash = 5381; //magic number
     int c;
     

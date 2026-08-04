@@ -3,6 +3,7 @@
 
 #include "dependencies_cot.h"
 #include "hashfunc_cot.h"
+#include "init_cot.h"
 
 typedef struct stringPair {
     char* key;
@@ -18,6 +19,7 @@ typedef struct stringMap {
 
 
 stringPair* strPairInit(char* key, char* value) {
+    cottageCheck(NULL);
     stringPair* newpair = (stringPair*) calloc(1, sizeof(stringPair));
     //stringPair consists of a copy of key and value
     newpair->key = (char*) calloc(strlen(key) + 1, sizeof(char));
@@ -29,6 +31,7 @@ stringPair* strPairInit(char* key, char* value) {
 }
 
 void strPairFree(stringPair* query) {
+    cottageCheck();
     if (query->key) free(query->key);
     if (query->value) free(query->value);
     query->pd = -1;
@@ -37,6 +40,7 @@ void strPairFree(stringPair* query) {
 
 
 stringMap* strMapNewSize(const unsigned int oldSize) {
+    cottageCheck(NULL);
     const unsigned int newSize = oldSize << 1; //doubled
     stringMap* newmap = (stringMap*)malloc(sizeof(stringMap));
     newmap->count = 0;
@@ -47,11 +51,13 @@ stringMap* strMapNewSize(const unsigned int oldSize) {
 }
 
 stringMap* strMapInit() {
+    cottageCheck(NULL);
     const unsigned int initSize = 8 >> 1; //start with size of 8
     return strMapNewSize(initSize);
 }
 
-int strMapFree(stringMap* strMap) {
+bool strMapFree(stringMap* strMap) {
+    cottageCheck(false);
     //free every query
     for (unsigned int i = 0; i < strMap->capacity; i++) {
         if (strMap->items[i]) strPairFree(strMap->items[i]);
@@ -59,13 +65,14 @@ int strMapFree(stringMap* strMap) {
     free(strMap->items);
     free(strMap);
     
-    return 1;
+    return false;
 }
 
-int strMapInsert(stringMap** strMap, char* key, char* value);
+bool strMapInsert(stringMap** strMap, char* key, char* value);
 
 
 stringMap* strMapResize(stringMap* strMap) { //currently only resize upwards, since deleting items isnt in the current scope
+    cottageCheck(NULL);
     stringMap* newmap = strMapNewSize(strMap->capacity);
 
     newmap->count = strMap->count;
@@ -92,7 +99,8 @@ stringMap* strMapResize(stringMap* strMap) { //currently only resize upwards, si
 }
 
 
-int strMapInsert(stringMap** strMap, char* key, char* value) {
+bool strMapInsert(stringMap** strMap, char* key, char* value) {
+    cottageCheck(false);
     if (!key || !value || !strMap) return 1;
     
     const unsigned int load = (*strMap)->count * 100 / (*strMap)->capacity;
@@ -116,13 +124,13 @@ int strMapInsert(stringMap** strMap, char* key, char* value) {
         if (curpair == NULL) { //empty
             (*strMap)->items[index] = newpair;
             (*strMap)->count++;
-            return 1;
+            return true;
         }
 
         if (strcmp(curpair->key, key) == 0) {//value with same key so replace
             strPairFree((*strMap)->items[index]);
             (*strMap)->items[index] = newpair;
-            return 1;
+            return true;
         }
 
         if (newpair->pd > curpair->pd) { //round robin
@@ -137,11 +145,12 @@ int strMapInsert(stringMap** strMap, char* key, char* value) {
     
     //in the case things do go wrong
     strPairFree(newpair);
-    return 0;
+    return false;
 
 }
 
 char* strMapGet(stringMap* strMap, char* key) {
+    cottageCheck(NULL);
     //printf("strMap get starting\n");
     //if (key) printf("key valid\n");
 
@@ -170,6 +179,7 @@ char* strMapGet(stringMap* strMap, char* key) {
 
 //combining two stringMaps
 stringMap* strMapCombine(stringMap* intruder, stringMap* home) {
+    cottageCheck(NULL);
 
     //we create the new map first, then populate with the right data if only intruder or home is valid. this is to ensure unique pointers
     stringMap* new = strMapInit();

@@ -2,6 +2,7 @@
 #define ERROR_COT
 
 #include "dependencies_cot.h"
+#include "init_cot.h"
 
 typedef enum ErrorType {
     ERROR_400,
@@ -34,6 +35,7 @@ typedef enum ErrorType {
 } ErrorType;
 
 int sendError(int client, ErrorType error) {
+    cottageCheck(0);
     switch (error) {
         case ERROR_404: {
             const char* msg = 

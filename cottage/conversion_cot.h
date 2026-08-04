@@ -3,9 +3,11 @@
 
 #include "dependencies_cot.h"
 #include "sitevar_cot.h"
+#include "init_cot.h"
 
 
 void BC_putAt(char* exp, int i, char c) {
+	cottageCheck();
 	if (i < 0) return;
 	
 	//shift everything up 1
@@ -17,6 +19,7 @@ void BC_putAt(char* exp, int i, char c) {
 }
 
 void BC_delAt(char* exp, int i) {
+	cottageCheck();
 	if (i < 0 || i >= strlen(exp)) return;
 	
 	//shift everything up 1
@@ -27,11 +30,13 @@ void BC_delAt(char* exp, int i) {
 }
 
 bool BC_isDoubleOperator(char c) {
+	cottageCheck(false);
 	return (c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
 }
 
 
 bool BC_isUInt(char* exp) {
+	cottageCheck(false);
     for (int i = 0; i < strlen(exp); i++) {
         int digit = exp[i] - '0';
         if (0 <= digit && digit <= 9) continue;
@@ -41,6 +46,7 @@ bool BC_isUInt(char* exp) {
 }
 
 uint64_t BC_StrToUInt(char* exp) {
+	cottageCheck(0);
     uint64_t number = 0;
     int mult = 1;
     for (int i = 0; i < strlen(exp); i++) {
@@ -57,6 +63,7 @@ uint64_t BC_StrToUInt(char* exp) {
 //with negatives, enforcing only one negative sign at the front
 //if issues arise, change to trailing negatives at the front check
 bool BC_isInt(char* exp) {
+	cottageCheck(false);
     //perform a check for a solitary negative sign
 	//if (exp[0] == '-' && exp[1] == 0) return false;
 	if (!strcmp(exp, "-")) return false;
@@ -74,6 +81,7 @@ bool BC_isInt(char* exp) {
 }
 
 int64_t BC_StrToInt(char* exp) {
+	cottageCheck(0);
     int64_t number = 0;
     int mult = 1;
 	bool isNegative = false;
@@ -100,6 +108,7 @@ int64_t BC_StrToInt(char* exp) {
 // float x = -.;
 
 bool BC_isFloat(char* exp) {
+	cottageCheck(false);
 	if ((!strcmp(exp, "-")) || (!strcmp(exp, ".")) || (!strcmp(exp, "-.")) || (!strcmp(exp, ".-"))) return false;
 
     bool pointFound = false;
@@ -120,6 +129,7 @@ bool BC_isFloat(char* exp) {
 }
 
 double BC_StrToFloat(char* exp) {
+	cottageCheck(0);
     double number = 0;
 	double pointTrail = 0;
     int mult = 1;
@@ -163,16 +173,19 @@ double BC_StrToFloat(char* exp) {
 }
 
 bool BC_isChar(char* exp) {
+	cottageCheck(false);
 	//must check apostrophe bounds, and a character length of 3
 	if (strlen(exp) == 3 && exp[0] == '\'' && exp[2] == '\'') return true;
 	else return false;
 }
 
 char BC_StrToChar(char* exp) {
+	cottageCheck(0);
 	return exp[1];
 }
 
 bool BC_isString(char* exp) {
+	cottageCheck(false);
 	//must check quotation bounds and thats it
 	size_t len = strlen(exp);
 	if (exp[0] == '"' && exp[len - 1] == '"') return true;
@@ -180,6 +193,7 @@ bool BC_isString(char* exp) {
 }
 
 char* BC_StrToStr(char* exp) {
+	cottageCheck(NULL);
 	//just strip the border quotes
 	char* new = (char*) malloc(strlen(exp) + 1);
 	strcpy(new, exp);
@@ -189,10 +203,12 @@ char* BC_StrToStr(char* exp) {
 }
 
 bool BC_isBool(char* exp) {
+	cottageCheck(false);
 	return (!strcmp(exp, "true") || !strcmp(exp, "false"));
 }
 
 bool BC_StrToBool(char* exp) {
+	cottageCheck(false);
 	if (!strcmp(exp, "true")) return true;
 	else if (!strcmp(exp, "false")) return false;
 
@@ -223,6 +239,7 @@ just add comparison type checks here!
 #define generalNumber double
 
 generalNumber BC_siteVarToNumber(VARTYPE type, void* val) {
+	cottageCheck(0);
 	switch (type) {
 		// case INT64:  {
 		// 	printf("INT\n");
@@ -258,6 +275,7 @@ generalNumber BC_siteVarToNumber(VARTYPE type, void* val) {
 }
 
 VARTYPE BC_StrToType(char* exp) {
+	cottageCheck(ERROR);
 	if (BC_isUInt(exp)) return UINT;
 	if (BC_isInt(exp)) return INT;
 	if (BC_isFloat(exp)) return FLOAT;
@@ -317,6 +335,7 @@ VARTYPE BC_StrToType(char* exp) {
 	as a result, this function must be recursive
 */
 siteVar* BC_StrToVariable(char* exp, siteVar* variables, siteVar* originalVariables) {
+	cottageCheck(NULL);
 	char* var = (char*)calloc(strlen(exp) + 1, sizeof(char));
 	bool inBrackets = false;
 	size_t i = 0;
@@ -481,6 +500,7 @@ siteVar* BC_StrToVariable(char* exp, siteVar* variables, siteVar* originalVariab
 //conversions from type to string, like itoa
 
 char* BC_IntToStr(int_cot target) {
+	cottageCheck(NULL);
 	if (target == 0) {
 		char* buffer = (char*) calloc(2, sizeof(char));
 		sprintf(buffer, "0");
@@ -496,6 +516,7 @@ char* BC_IntToStr(int_cot target) {
 }
 
 char* BC_UIntToStr(uint_cot target) {
+	cottageCheck(NULL);
 	if (target == 0) {
 		char* buffer = (char*) calloc(2, sizeof(char));
 		sprintf(buffer, "0");
@@ -512,6 +533,7 @@ char* BC_UIntToStr(uint_cot target) {
 
 //different number strategy
 char* BC_FloatToStr(float_cot target) {
+	cottageCheck(NULL);
     //to get the number of digits, use log base 10, truncate it, then add 1
     size_t digitCount = snprintf(NULL, 0, "%lf", target);
     char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
@@ -522,6 +544,7 @@ char* BC_FloatToStr(float_cot target) {
 }
 
 char* BC_BoolToStr(bool_cot target) {
+	cottageCheck(NULL);
     char* buffer = (char*) calloc(5 + 1, sizeof(char)); //false has 5 characters
     char* ptr = buffer;
     ptr += sprintf(ptr, "%s", target ? "true" : "false");
@@ -530,6 +553,7 @@ char* BC_BoolToStr(bool_cot target) {
 }
 
 char* BC_VariableToString(siteVar* variable, size_t index) {
+	cottageCheck(NULL);
     if (!variable) return NULL;
 
     switch(variable->type) {
@@ -576,11 +600,13 @@ char* BC_VariableToString(siteVar* variable, size_t index) {
 
 
 bool BC_isArray(char* exp) {
+	cottageCheck(false);
     if (!exp) return false;
     return (exp[0] =='[' && exp[strlen(exp) - 1] == ']');
 }
 
 siteVar* BC_ArrayToSiteVar(char* name, char* exp, siteVar* variables) {
+	cottageCheck(NULL);
 	//elements are divided by commas
 	//they cannot be arrays themselves.
 	//they must all be of the same type, with the first element as a reference point

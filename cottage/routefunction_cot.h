@@ -15,6 +15,7 @@ return a boolean for success or failure
 #include "sitevar_cot.h"
 #include "stringmap_cot.h"
 #include "dependencies_cot.h"
+#include "init_cot.h"
 
 
 typedef enum HTTPTYPE {
@@ -40,8 +41,7 @@ typedef struct HttpRequest {
 } HttpRequest;
 
 void debugHttpRequest(HttpRequest request) {
-    
-    
+    cottageCheck();
     printf(
         "REQUEST DEBUG\n"
         "TARGET:%s\n"

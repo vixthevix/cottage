@@ -19,6 +19,7 @@
 #include "routemap_cot.h"
 #include "httpsplit_cot.h"
 #include "manager_cot.h"
+#include "init_cot.h"
 
 #endif //guard
 #endif //start definition

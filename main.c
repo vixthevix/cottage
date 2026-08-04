@@ -1,7 +1,11 @@
 #include "cottage/manager_cot.h"
 #include "cottage/routefunction_cot.h"
+#include "cottage/routemap_cot.h"
 #define COTTAGE_START
 #include "cottage/cottage.h"
+
+#include "routes/home_routes.h"
+#include "routes/cool_routes.h"
 
 /*
 right now, cottage has a lot of issues.
@@ -20,12 +24,12 @@ also, make shell scripts / C executables for making routes
 place these helper scripts into a cottage/help folder
 make a makefile to compile the helper scripts.
 
+4/8/2026 update
+mkroutes is a cool helper script so far
+shame that we need to include each route in our main file individually
+idk if we can do that without introducing circular dependencies
+
 */
-
-
-NewRouteFunction(homeGet) {
-    return defaultGet(request, clientfd, extraData, "./templates/main.html");
-}
 
 
 int main(void) {
@@ -35,8 +39,9 @@ int main(void) {
     // printf("huh\n");
     // printf("cleanedString: %s\n", cleanedString);
     // free(cleanedString);
-
+    printf("hello\n");
     cottageInit();
+    printf("oh no\n");
 
     const char* ADDRESS = "0.0.0.0";
     const char* PORT = "8080";
@@ -53,14 +58,19 @@ int main(void) {
     //THE ROUTES
     RouteEntry home = {
         .routeGet = homeGet,
-        .routePost = NULL,
-        .routePut = NULL,
-        .routeDelete = NULL
+        .routePost = homePost,
+        .routePut = homePut,
+        .routeDelete = homeDelete
+    };
+    RouteEntry cool = {
+    .routeGet = coolGet,
+    .routePost = coolPost,
+    .routePut = coolPut,
+    .routeDelete = coolDelete
     };
 
 
-    //the routemap
-    
+    newRoute("/cool", cool);
     newRoute("/", home);
 
     while (true) {
@@ -75,7 +85,7 @@ int main(void) {
         //now we just wire up the routeMap
         //printf("NEW CLIENT\n");
 
-        if (!handleRequest(request, clientfd, NULL, globalRoutes)) {
+        if (!handleRequest(request, clientfd, NULL, GLOBALROUTES)) {
             printf("could not handle request\n");
             sendError(clientfd, ERROR_404);
         }
@@ -85,6 +95,7 @@ int main(void) {
         serverCloseClient(clientfd);
         HttpRequestFree(request);
     }
+    RouteMapFree(GLOBALROUTES);
 
     return 0;
 }
