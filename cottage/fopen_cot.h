@@ -43,6 +43,14 @@ bool sendNormal(char* filepath, char* type, int client) {
     return true;
 }
 
+
+typedef struct conditionalState {
+    bool valid;
+    bool ifAppeared;
+    bool elseAppeared;
+    bool chainSuccess;
+} conditionalState;
+
 //recursive function for opening a file
 //need it to open a file within a file
 //just copy paste stuff over
@@ -58,8 +66,10 @@ char* openHTML(const char* filepath, siteVar* variables) {
     unsigned int size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
+    unsigned int curDataSize = size + 1;
+
     //we will try write to data using a for loop, to keep track of our frontend shenanigans
-    char* data = (char*) calloc(size + 1, sizeof(char));
+    char* data = (char*) calloc(curDataSize, sizeof(char));
     int c = 0, di = 0;
 
     //use a stack to keep track of brackets
@@ -90,14 +100,21 @@ char* openHTML(const char* filepath, siteVar* variables) {
     //we also have to ensure that ELSE only appears once, after all ELSEIFs and IF
     //we make a boolean to show this happened.
     //If an ELSE appears before the other two, throw an error.
-    int ifCount = 0;
-    bool ifValid = true;
-    bool elseValid = true;
-    bool elseIfValid = true;
-    int ifInvalidState = 0;
-    int ifValidState = 0;
-    bool elseAppeared = false;
-    bool ifAppeared = false;
+    // int ifCount = 0;
+    // bool ifValid = true;
+    // bool elseValid = true;
+    // bool elseIfValid = true;
+    // int ifInvalidState = 0;
+    // int ifValidState = 0;
+    // bool elseAppeared = false;
+    // bool ifAppeared = false;
+
+    //lets use an array to keep track of if statements
+    conditionalState states[512] = {0};
+    int curCondState = 0;
+    //layer 0 is the base plane. here, all initial if statements
+    //are safe to check.
+    states[0].valid = true; states[0].ifAppeared = false; states[0].elseAppeared = false; states[0].chainSuccess = false;
 
     int mode = -1;
     const int
@@ -126,80 +143,169 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
             mode = -1;
             
-            //lets consider else here
-            if (!strcmp(command, "ELSE")) {
-                printf("reached else, ifCount is %i, ifInvalidState is %i, ifValid is %i\n", ifCount, ifInvalidState, ifValid);
-                //we have to be in the same ifInvalidState, and ifValid must be false
-                if (ifCount == ifInvalidState && !ifValid) {
-                    // if (!ifValid) {
-                    //     printf("else happening\n");
-                    //     ifValid = true;
-                    // }
-                    printf("else happening\n");
-                    ifValid = true;
+            if (!strcmp(command, "IF")) {
+                curCondState++;
+                if (curCondState <= 0) goto failure;
+                if (curCondState >= 512) goto failure;
+
+                memset(&states[curCondState], 0, sizeof(conditionalState));
+                states[curCondState].ifAppeared = true;
+
+                if (states[curCondState - 1].valid) {
+                    mode = 2;
+                    goto mode2;   
                 }
-                //if we are in a different state, then we know that the if passed
-                //so the else fails.
-                else ifValid = false;
-                elseAppeared = true;
+                else {
+                    //if the prev state is false, we have to skip everything.
+                    //to signal this to the other branches, we set chainSuccess to be true
+                    //(it will act like it is)
+                    states[curCondState].chainSuccess = true;
+                }
                 finishedEmbedRead = true;
                 oi = 0;
                 memset(command, 0, commandSize * sizeof(char));
                 memset(offload, 0, offloadSize * sizeof(char));
+
+
+                // ifCount++;
+                // if (ifCount <= 0) goto failure;
+                // //if (elseAppeared) goto failure;
+                // ifAppeared = true;
+                // //assuming that we are in a nested if
+                // if (ifValid) {
+                //     mode = 2;
+                //     goto mode2;
+                // }
+                // finishedEmbedRead = true;
+                // oi = 0;
+                // memset(command, 0, commandSize * sizeof(char));
+                // memset(offload, 0, offloadSize * sizeof(char));
             }
             else if (!strcmp(command, "ELSE-IF")) {
-                //kinda works like else, first check if an else has appeared
-                if (elseAppeared) goto failure;
-                if (!ifAppeared) goto failure;
+                printf("curState: valid:%s, ifAppeared:%s, elseAppeared:%s\n", states[curCondState].valid ? "true":"false", states[curCondState].ifAppeared ? "true":"false", states[curCondState].elseAppeared ? "true":"false");
                 
-                if (ifCount == ifInvalidState && !ifValid) {
-                    // if (!ifValid) {
-                    //     printf("else if happening\n");
-                    //     mode = 2;
-                    //     goto mode2;
-                    // }
-                    printf("else if happening\n");
+                if (!states[curCondState].ifAppeared || states[curCondState].elseAppeared) {
+                    goto failure;
+                }
+                
+                //assume not valid
+                states[curCondState].valid = false;
+
+                //are we in a valid prev state, and has there been a success signal from earlier?
+                if (states[curCondState - 1].valid && !states[curCondState].chainSuccess) {
                     mode = 2;
                     goto mode2;
                 }
-                else ifValid = false;
+                //mode = -1;
                 finishedEmbedRead = true;
                 oi = 0;
                 memset(command, 0, commandSize * sizeof(char));
                 memset(offload, 0, offloadSize * sizeof(char));
+
+                //kinda works like else, first check if an else has appeared
+                // if (elseAppeared) goto failure;
+                // if (!ifAppeared) goto failure;
+                
+                // if (ifStates[ifCount] == false) {
+                //     // if (!ifValid) {
+                //     //     printf("else if happening\n");
+                //     //     mode = 2;
+                //     //     goto mode2;
+                //     // }
+                //     printf("else if happening\n");
+                //     mode = 2;
+                //     goto mode2;
+                // }
+                // else ifValid = false;
+                // finishedEmbedRead = true;
+                // oi = 0;
+                // memset(command, 0, commandSize * sizeof(char));
+                // memset(offload, 0, offloadSize * sizeof(char));
             }
-            else if (!strcmp(command, "ENDIF")) {                
-                if (ifCount == ifInvalidState) {
-                    ifValid = true;
-                    elseValid = true;
-                    elseIfValid = true;
+            else if (!strcmp(command, "ELSE")) {
+                
+                if (!states[curCondState].ifAppeared || states[curCondState].elseAppeared) goto failure;
+                
+                states[curCondState].elseAppeared = true;
+
+                //has the chain signal happened, and are we in a valid prevstate?
+                if (states[curCondState - 1].valid && !states[curCondState].chainSuccess) {
+                    states[curCondState].valid = true;
+                    states[curCondState].chainSuccess = true;
                 }
-                ifAppeared = false;
-                elseAppeared = false;
-                ifCount--;
+                else states[curCondState].valid = false;
+                
+                finishedEmbedRead = true;
+                oi = 0;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+                
+                //printf("reached else, ifCount is %i, ifInvalidState is %i, ifValid is %i\n", ifCount, ifInvalidState, ifValid);
+                //we have to be in the same ifInvalidState, and ifValid must be false
+                
+                //this code executes if ifStates[ifCount] is false
+                // if (!ifAppeared) goto failure;
+                // if (elseAppeared) goto failure;
+                // ifStates[ifCount] = !ifStates[ifCount];
+
+                // if (ifStates[ifCount] == false) {
+                //     ifValid = true;
+                //     ifStates[ifCount] = true;
+                // }
+                // else ifValid = false;
+                
+                // // if (ifCount == ifInvalidState && !ifValid) {
+                // //     // if (!ifValid) {
+                // //     //     printf("else happening\n");
+                // //     //     ifValid = true;
+                // //     // }
+                // //     printf("else happening\n");
+                // //     ifValid = true;
+                // // }
+                // // //if we are in a different state, then we know that the if passed
+                // // //so the else fails.
+                // // else ifValid = false;
+                // elseAppeared = true;
+                // finishedEmbedRead = true;
+                // oi = 0;
+                // memset(command, 0, commandSize * sizeof(char));
+                // memset(offload, 0, offloadSize * sizeof(char));
+            }
+            else if (!strcmp(command, "ENDIF")) {  
+                
+                if (!states[curCondState].ifAppeared) goto failure;
+
+                curCondState--;
+                if (curCondState < 0) goto failure;
+                
                 mode = -1;
                 finishedEmbedRead = true;
                 oi = 0;
                 memset(command, 0, commandSize * sizeof(char));
                 memset(offload, 0, offloadSize * sizeof(char));
+                
+                //printf("reached endif, ifCount is %i, ifInvalidState is %i, ifValidSate is %i, ifValid is %i\n", ifCount, ifInvalidState, ifValidState, ifValid);              
+                //if (!ifAppeared) goto failure;
+                //if (ifCount == ifInvalidState || ifCount == ifValidState) {
+                // ifValid = true;
+                // elseValid = true;
+                // elseIfValid = true;
+                // printf("endif is a success\n");
+                // //}
+                // ifAppeared = false;
+                // elseAppeared = false;
+                // ifCount--;
+                // if (ifCount < 0) goto failure;
+                // mode = -1;
+                // finishedEmbedRead = true;
+                // oi = 0;
+                // memset(command, 0, commandSize * sizeof(char));
+                // memset(offload, 0, offloadSize * sizeof(char));
                 //mode = 2;
             }
-            else if (!strcmp(command, "IF")) {
-                ifCount++;
-                if (elseAppeared) goto failure;
-                ifAppeared = true;
-                //assuming that we are in a nested if
-                if (ifValid) {
-                    mode = 2;
-                    goto mode2;
-                }
-                finishedEmbedRead = true;
-                oi = 0;
-                memset(command, 0, commandSize * sizeof(char));
-                memset(offload, 0, offloadSize * sizeof(char));
-            }
             
-            else if (!ifValid) mode = -1;
+            // else if (!ifValid) mode = -1;
+            else if (!states[curCondState].valid) mode = -1;
             
             else if (!strcmp(command, "VAR")) {
                 mode = 0;
@@ -231,7 +337,11 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 //printf("offload is %s\n", offload);
                 //char* value = qmapGet(variables, offload);
                 siteVar* var = BC_StrToVariable(offload, variables, variables);
-                if (!var) goto failure;
+                
+                if (!var){
+                    printf("VAR: StrToVariable Fail\n");
+                    goto failure;
+                } 
                 printf("WOOO\n");
                 //we need to convert this value into a string
                 char* value = BC_VariableToString(var, 0);
@@ -293,6 +403,9 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
                 //keep track of quotes
                 bool inQuotes = false;
+
+                //keep track of array
+                bool inArray = false;
                 
                 j++;
                 for (; offload[j] != 0; j++) {
@@ -303,7 +416,13 @@ char* openHTML(const char* filepath, siteVar* variables) {
                         isVar = false;
                         continue;
                     }
-                    else if (offload[j] == ',' && !isVar && !inQuotes) {
+                    else if (offload[j] == '[') {
+                        inArray = true;
+                    }
+                    else if (offload[j] == ']') {
+                        inArray = false;
+                    }
+                    else if (offload[j] == ',' && !isVar && !inQuotes && !inArray) {
                         isVar = true;
 
                         //we have a value and pair
@@ -326,32 +445,32 @@ char* openHTML(const char* filepath, siteVar* variables) {
                             //a string, or a variable
                             if (BC_isUInt(curValue)) {
                                 printf("ITS A UINT\n");
-                                siteVarCompositeInsertNew(newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
+                                siteVarCompositeInsertNew(&newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
                             }
                             else if (BC_isInt(curValue)) {
-                                siteVarCompositeInsertNew(newVariables, curVar, INT, 1, &((int_cot){BC_StrToInt(curValue)}));
+                                siteVarCompositeInsertNew(&newVariables, curVar, INT, 1, &((int_cot){BC_StrToInt(curValue)}));
                             }
                             else if (BC_isFloat(curValue)) {
-                                siteVarCompositeInsertNew(newVariables, curVar, FLOAT, 1, &((float_cot){BC_StrToFloat(curValue)}));
+                                siteVarCompositeInsertNew(&newVariables, curVar, FLOAT, 1, &((float_cot){BC_StrToFloat(curValue)}));
                             }
                             else if (BC_isBool(curValue)) {
-                                siteVarCompositeInsertNew(newVariables, curVar, BOOL, 1, &((bool){BC_StrToBool(curValue)}));
+                                siteVarCompositeInsertNew(&newVariables, curVar, BOOL, 1, &((bool){BC_StrToBool(curValue)}));
                             }
                             else if (BC_isString(curValue)) {
                                 //remove the quote marks
                                 //BC_delAt(curValue, 0);
                                 //BC_delAt(curValue, strlen(curValue) - 1);
                                 //qmapInsert(newVariables, curVar, curValue);
-                                siteVarCompositeInsertNew(newVariables, curVar, STRING, 1, &((string_cot){BC_StrToStr(curValue)}));
+                                siteVarCompositeInsertNew(&newVariables, curVar, STRING, 1, &((string_cot){BC_StrToStr(curValue)}));
                             }
 
                             else if (BC_isArray(curValue)) { //NEXT TASK
-
+                                printf("ITS AN ARRAY\n");
                                 siteVar* storage = BC_ArrayToSiteVar(curVar, curValue, variables);
                                 //now we have storage, first check if its null
                                 //then put it into our thing
                                 if (storage) {
-                                    siteVarCompositeInsert(newVariables, storage);
+                                    siteVarCompositeInsert(&newVariables, storage);
                                     siteVarFree(storage);
                                 }
                             }
@@ -362,7 +481,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                                 siteVar* x = BC_StrToVariable(curValue, variables, variables);
                                 if (x) {
                                     //qmapInsert(newVariables, curVar, x);
-                                    siteVarCompositeInsert(newVariables, x);
+                                    siteVarCompositeInsert(&newVariables, x);
                                     siteVarFree(x);
                                 }
                                 else {
@@ -394,17 +513,17 @@ char* openHTML(const char* filepath, siteVar* variables) {
                     if (curVar && curValue) {
                         printf("fopen: curVar is %s and curValue is %s\n", curVar, curValue);
                         if (BC_isUInt(curValue)) {
-                            siteVarCompositeInsertNew(newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
+                            siteVarCompositeInsertNew(&newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
                         }
                         else if (BC_isInt(curValue)) {
-                            siteVarCompositeInsertNew(newVariables, curVar, INT, 1, &((int_cot){BC_StrToInt(curValue)}));
+                            siteVarCompositeInsertNew(&newVariables, curVar, INT, 1, &((int_cot){BC_StrToInt(curValue)}));
                         }
                         else if (BC_isFloat(curValue)) {
                             //qmapInsert(newVariables, curVar, curValue);
-                            siteVarCompositeInsertNew(newVariables, curVar, FLOAT, 1, &((float_cot){BC_StrToFloat(curValue)}));
+                            siteVarCompositeInsertNew(&newVariables, curVar, FLOAT, 1, &((float_cot){BC_StrToFloat(curValue)}));
                         }
                         else if (BC_isBool(curValue)) {
-                            siteVarCompositeInsertNew(newVariables, curVar, BOOL, 1, &((bool){BC_StrToBool(curValue)}));
+                            siteVarCompositeInsertNew(&newVariables, curVar, BOOL, 1, &((bool){BC_StrToBool(curValue)}));
                         }
                         else if (BC_isString(curValue)) {
                             //remove the quote marks
@@ -413,7 +532,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                             //qmapInsert(newVariables, curVar, curValue);
                             char* curValueStripped = BC_StrToStr(curValue); 
                             printf("IS STRING: %s\n", curValueStripped);
-                            siteVarCompositeInsertNew(newVariables, curVar, STRING, 1, &curValueStripped);
+                            siteVarCompositeInsertNew(&newVariables, curVar, STRING, 1, &curValueStripped);
                             
                             //try getting back the variable
                             siteVar* strAccess = siteVarCompositeAccess(newVariables, curVar);
@@ -423,13 +542,21 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
                         }
                         else if (BC_isArray(curValue)) { //NEXT TASK
-
+                            printf("ITS AN ARRAY\n");
                             siteVar* storage = BC_ArrayToSiteVar(curVar, curValue, variables);
+                            printf("storage made\n");
                             //now we have storage, first check if its null
                             //then put it into our thing
                             if (storage) {
-                                siteVarCompositeInsert(newVariables, storage);
+                                printf("storage valid\n");
+                                //iterate over storage strings just in case
+                                string_cot* strings = (string_cot*)storage->data;
+                                for (size_t i = 0; i < storage->arrayItemCount; i++) {
+                                    printf("storage %u is %s\n", i, strings[i]);
+                                }
+                                siteVarCompositeInsert(&newVariables, storage);
                                 siteVarFree(storage);
+                                printf("storage inserted\n");
                             }
                         }
                         else { //must be variable
@@ -438,7 +565,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                             siteVar* x = BC_StrToVariable(curValue, variables, variables);
                             if (x) {
                                 //qmapInsert(newVariables, curVar, x);
-                                siteVarCompositeInsert(newVariables, x);
+                                siteVarCompositeInsert(&newVariables, x);
                                 siteVarFree(x);
                             }
                             else {
@@ -453,15 +580,16 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 free(link);
 
                 //reset newVariables
-                siteVarFree(newVariables);
+                if (newVariables) siteVarFree(newVariables);
                 newVariables = NULL;
                 //copy over the new data
                 if (dataINPUT) {
                     printf("input data got\n");
-                    printf("%s\n", dataINPUT);
+                    //printf("%s\n", dataINPUT);
                     //we need to reallocate our data to take into account
                     //increases in size
-                    data = (char*) realloc(data, size + (strlen(dataINPUT) << 1));
+                    curDataSize += strlen(dataINPUT);
+                    data = (char*) realloc(data, curDataSize);
                     for (j = 0; j < strlen(dataINPUT); j++, di++) {
                         data[di] = dataINPUT[j];
                     }
@@ -476,6 +604,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 memset(command, 0, commandSize * sizeof(char));
                 memset(offload, 0, offloadSize * sizeof(char));
 
+                //printf("current data:\n\n%s\n\n", data);
             }
 
         }
@@ -492,16 +621,25 @@ char* openHTML(const char* filepath, siteVar* variables) {
                     bool result = BC_evaluate(transformed, variables);
                     printf("formatted is %s, transformed is %s, result is %i\n", formatted, transformed, result);
                     
-                    if (result) {
-                        ifValid = true;
-                        ifValidState = ifCount;
-                    }
-                    else {
-                        ifValid = false;
-                        //we have to skip until we have reached the next 
-                        ifInvalidState = ifCount;
-                    }
                     
+                    //has there been a chainsuccess signal?
+                    if (result && !states[curCondState].chainSuccess) {
+                        states[curCondState].valid = true;
+                        states[curCondState].chainSuccess = true; //set the signal
+                    }
+                    else states[curCondState].valid = false;
+                    
+                    // if (result) {
+                    //     ifValid = true;
+                    //     ifValidState = ifCount;
+                    // }
+                    // else {
+                    //     ifValid = false;
+                    //     //we have to skip until we have reached the next 
+                    //     ifInvalidState = ifCount;
+                    // }
+                    // ifStates[ifCount] = ifValid;
+
                     free(formatted);
                     free(transformed);
                 }
@@ -543,7 +681,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
         // }
         else {
             dataWrite:
-            if (ifValid) {
+            if (states[curCondState].valid) {
                 if (c == '<') diamondCount++;
                 else if (c == '>') diamondCount--;
                 data[di] = (char)c;
@@ -559,12 +697,14 @@ char* openHTML(const char* filepath, siteVar* variables) {
     data = NULL;
 
     success:
+    printf("success\n");
     fclose(file);
     free(offload);
     free(command);
     //qmapFree(newVariables);
     if (data) {
         //set safety null terminator
+        printf("data valid\n");
         data[di] = 0;
         return data;
     }
@@ -580,6 +720,7 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
     //first, prepare the html
 
     char* data = openHTML(filepath, variables);
+    //printf("full data:\n\n%s\n\n", data);
 
     if (data) goto success;
     
@@ -588,8 +729,8 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
     data = NULL;
 
     success:
- 
     if (data) {
+        printf("sendHTML 1\n");
         //now send the HTTP response, it must be in a specific format
         //first, the header
         const char* header = 
@@ -599,12 +740,13 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
         "\r\n";
         send(client, header, strlen(header), 0);
 
-
+        printf("sendHTML 2\n");
         //then the data
         send(client, data, strlen(data), 0);
 
 
         free(data);
+        printf("sendHTML 3\n");
         return true;
     }
     else return false;

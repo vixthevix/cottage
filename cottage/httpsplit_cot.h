@@ -26,12 +26,18 @@ but thats pretty much it
 
 #include "dependencies_cot.h"
 #include "init_cot.h"
+#include "manager_cot.h"
 #include "routefunction_cot.h"
 #include "stringmap_cot.h"
 #include "routemap_cot.h"
 #include "sitevar_cot.h"
 #include "fopen_cot.h"
+#include <stddef.h>
+#include <stdlib.h>
 #include <threads.h>
+#include <time.h>
+
+siteVar* offloadToVariables(char* offload);
 
 
 //rename ERROR if conflicts with other enum types
@@ -231,6 +237,56 @@ HttpRequest splitHttpRequest(char* data) {
     return request;
 }
 
+int hexToInt(char hex) {
+    if ('0' <= hex && hex <= '9') return hex - '0';
+    if ('a' <= hex && hex <= 'f') return hex - 'a' + 10; //a=10
+    if ('A' <= hex && hex <= 'F') return hex - 'A' + 10; //A=10
+    return -1; //invalid 
+}
+
+char* urlDecode(char* offload) {
+    if (!offload) return NULL;
+
+    char* decoded = (char*) calloc(strlen(offload) + 1, sizeof(char));
+    size_t j = 0;
+    // char* readptr = offload;
+    // char* writeptr = offload;
+
+    size_t i = 0;
+    while (offload[i]) {
+        if (offload[i] == '%' && offload[i + 1] && offload[i + 2]) {
+            //convert into hex
+            int high = hexToInt(offload[i + 1]);
+            int low = hexToInt(offload[i + 2]);
+            if (high >= 0 && low >= 0) {
+                char byte = (char)((high << 4) | low);
+
+                decoded[j++] = byte;
+                i += 3;
+
+                // *writeptr = byte;
+                // readptr += 3;
+                // writeptr++;
+                continue;
+            }
+        }
+        else if (offload[i] == '+') {
+            decoded[j++] = ' ';
+            i++;
+            continue;
+        }
+
+        //normal character
+        decoded[j++] = offload[i++];
+        // *writeptr = *readptr;
+        // readptr++;
+        // writeptr++;
+    }
+    
+    decoded = (char*)realloc(decoded, strlen(decoded) + 1);
+    return decoded;
+}
+
 //now that we have a request split into necessary components, we can go in two ways.
 //one way is to let the programmer handle everything themselves, in a way that fits them.
 //another is to provide helper functions for each http request type, to make life easier.
@@ -272,6 +328,8 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
     //for now, nothing happens if NULL
     //but maybe perform an error 405 method not allowed block
 
+    //decoding of '?' payload and request.payload is done in respective http functions
+
 
     switch (request.type) {
         case GET: {
@@ -312,12 +370,14 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
 
     //if the request type is not valid, we look at the assets folder
     //we clean up link, prepend the asset folder, and then check there
-    char* linkClean = cleanupPath(link);
+    char* linkDecode = urlDecode(link);
+    char* linkClean = cleanupPath(linkDecode);
     char* linkAsset = prependAssetFolder(linkClean);
 
     bool fileSent = sendFile(linkAsset, clientfd, extraData);
     free(linkClean);
     free(linkAsset);
+    free(linkDecode);
 
     if (!fileSent) {
         printf("stylesheet not sent\n");
@@ -330,13 +390,18 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
 
 }
 
-
-
 //maybe include extraVariables here who knows
 //but this will involve some encoding
 siteVar* offloadToVariables(char* offload) {
     cottageCheck(NULL);
     if (!offload || strlen(offload) <= 0) return NULL;
+
+    //before starting, we need to format our offload.
+    //it has weird symbols, particularily with strings
+    //so lets change this
+    
+    // offload = urlDecode(offload);
+    // printf("url decoded offload is %s\n", offload);
     
     //look for equals and question marks
     
@@ -348,12 +413,12 @@ siteVar* offloadToVariables(char* offload) {
     siteVar* variables = siteVarInit("variables", COMPOSITE, 0, NULL);
 
     bool state = false;
-
+    printf("offload to variables start\n");
     for (size_t i = 0; i < strlen(offload); i++) {
         if (offload[i] == '=') {
             if (state == false) {
                 strcpy(key, value);
-                memset(value, 0, 512);
+                memset(value, 0, index);
                 index = 0;
                 state = true;
             }
@@ -366,42 +431,57 @@ siteVar* offloadToVariables(char* offload) {
             if (state == true) {
                 //we have to get the type of our data, then insert it
                 //key remains the same
+                printf("key is %s, value is %s\n", key, value);
                 VARTYPE type = BC_StrToType(value);
                 if (type != ERROR) {
 
-                    void* data;
+                    void* data = NULL;
+                    char* strData = NULL; //for strings
                     switch (type) {
                         case UINT: {
+                            printf("offload to variables uint\n");
                             data = malloc(sizeof(uint_cot));
                             memcpy(data, &((uint_cot){BC_StrToUInt(value)}), sizeof(uint_cot));
                             break;
                         }
                         case INT: {
+                            printf("offload to variables int\n");
                             data = malloc(sizeof(int_cot));
                             memcpy(data, &((int_cot){BC_StrToInt(value)}), sizeof(int_cot));
                             break;
                         }
                         case FLOAT: {
+                            printf("offload to variables float\n");
                             data = malloc(sizeof(float_cot));
                             memcpy(data, &((float_cot){BC_StrToFloat(value)}), sizeof(float_cot));
                             break;
                         }
                         case STRING: {
-                            data = BC_StrToStr(value);
+                            printf("offload to variables string\n");
+                            char* strData = BC_StrToStr(value);
+                            if (strData)
+                            {
+                                data = malloc(sizeof(string_cot));
+                                memcpy(data, &strData, sizeof(string_cot));
+                                //free(strData);
+                            }
                             break;
                         }
                         case BOOL: {
+                            printf("offload to variables bool\n");
                             data = malloc(sizeof(bool_cot));
                             memcpy(data, &((bool_cot){BC_StrToBool(value)}), sizeof(bool_cot));
                             break;
                         }
                         default: {
+                            printf("offload to variables error\n");
                             siteVarFree(variables);
                             return NULL;
                         }
                     }
 
-                    siteVarCompositeInsertNew(variables, key, type, 1, data);
+                    siteVarCompositeInsertNew(&variables, key, type, 1, data);
+                    if (strData) free(strData);
                     free(data);
                 }
                 else {
@@ -411,7 +491,7 @@ siteVar* offloadToVariables(char* offload) {
                     if (BC_isArray(value)) {
                         siteVar* array = BC_ArrayToSiteVar(key, value, NULL);
                         if (array) {
-                            siteVarCompositeInsert(variables, array);
+                            siteVarCompositeInsert(&variables, array);
                         }
                     }
                     else {
@@ -447,41 +527,63 @@ siteVar* offloadToVariables(char* offload) {
         //we have to get the type of our data, then insert it
         //key remains the same
         VARTYPE type = BC_StrToType(value);
-        if (type != UNKNOWN) {
+        printf("key is %s, value is %s\n", key, value);
+        if (type != ERROR) {
 
-            void* data;
+            void* data = NULL;
+            char* strData = NULL;
+
+            //first, check if its an array
+            
+
             switch (type) {
                 case UINT: {
+                    printf("offload to variables uint\n");
                     data = malloc(sizeof(uint_cot));
                     memcpy(data, &((uint_cot){BC_StrToUInt(value)}), sizeof(uint_cot));
                     break;
                 }
                 case INT: {
+                    printf("offload to variables int\n");
                     data = malloc(sizeof(int_cot));
                     memcpy(data, &((int_cot){BC_StrToInt(value)}), sizeof(int_cot));
+                    printf("int data was %i\n", *(int_cot**)data);
                     break;
                 }
                 case FLOAT: {
+                    printf("offload to variables float\n");
                     data = malloc(sizeof(float_cot));
                     memcpy(data, &((float_cot){BC_StrToFloat(value)}), sizeof(float_cot));
                     break;
                 }
                 case STRING: {
-                    data = BC_StrToStr(value);
+                    printf("its a string yo\n");
+                    strData = BC_StrToStr(value);
+                    if (strData)
+                    {
+                        data = malloc(sizeof(string_cot));
+                        memcpy(data, &strData, sizeof(string_cot));
+                        //free(strData);
+                    }
                     break;
                 }
                 case BOOL: {
+                    printf("offload to variables bool\n");
                     data = malloc(sizeof(bool_cot));
                     memcpy(data, &((bool_cot){BC_StrToBool(value)}), sizeof(bool_cot));
                     break;
                 }
                 default: {
+                    printf("offload to variables error\n");
                     siteVarFree(variables);
                     return NULL;
                 }
             }
-
-            siteVarCompositeInsertNew(variables, key, type, 1, data);
+            printf("hi\n");
+            //printf("data was %s\n", *(char**)data);
+            bool status = siteVarCompositeInsertNew(&variables, key, type, 1, data);
+            printf("offload to variables no\n");
+            if (strData) free(strData);
             free(data);
         }
         else {
@@ -491,13 +593,16 @@ siteVar* offloadToVariables(char* offload) {
             if (BC_isArray(value)) {
                 siteVar* array = BC_ArrayToSiteVar(key, value, NULL);
                 if (array) {
-                    siteVarCompositeInsert(variables, array);
+                    printf("offload to variables, its an array\n");
+                    siteVarCompositeInsert(&variables, array);
                 }
+                else printf("offload to variables, not a valid array");
             }
             else {
                 //otherwise, its a variable name.
                 //since these are the base variables, we must return an error here
                 //or ignore the variable
+                printf("yikes\n");
                 siteVarFree(variables);
                 return NULL;
             }
@@ -518,6 +623,7 @@ siteVar* offloadToVariables(char* offload) {
         return NULL;
     }
 
+    printf("offload to variables end\n");
     return variables;
 }
 
@@ -527,30 +633,31 @@ siteVar* offloadToVariables(char* offload) {
 
 bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath) {
     cottageCheck(false);
-    if (!HttpRequestValid(request)  || request.type != GET) return false;
+    if (!HttpRequestValid(request) || request.type != GET) return false;
 
     //printf("default get\n");
     //filePath has our direct link.
     //we need our offload though, we can use strstr for this conveniently
 
     char* offloadPosition = strstr(request.target, "?");
-    char* offload = NULL;
-    if (offloadPosition) {
-        size_t offloadPositionLen = strlen(offloadPosition);
-        offload = (char*) malloc(offloadPositionLen + 1);
-        strcpy(offload, offloadPosition);
-        offload[offloadPositionLen] = 0;
-        BC_delAt(offload, 0); //to remove question mark
-    }
 
-    siteVar* offloadVars = offloadToVariables(offload);
-    siteVarCompositeInsert(offloadVars, extraVariables);
+    char* offload = NULL;
+    if (offloadPosition && offloadPosition[1]) offload = offloadPosition + 1;
+
+    //decode the url, and then send it.
+    char* offloadDecode = urlDecode(offload);
+    char* offloadClean = cleanupPath(offloadDecode);
+
+    siteVar* offloadVars = offloadToVariables(offloadClean);
+    siteVarCompositeInsert(&offloadVars, extraVariables);
     
-    sendFile(filePath, clientfd, offloadVars);
+    bool state = sendFile(filePath, clientfd, offloadVars);
 
     siteVarFree(offloadVars);
+    if (offloadDecode) free(offloadDecode);
+    if (offloadClean) free(offloadClean);
     
-    return true;
+    return state;
 }
 
 

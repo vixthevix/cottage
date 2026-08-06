@@ -1,11 +1,10 @@
-#include "cottage/manager_cot.h"
-#include "cottage/routefunction_cot.h"
-#include "cottage/routemap_cot.h"
+#include "cottage/sitevar_cot.h"
 #define COTTAGE_START
 #include "cottage/cottage.h"
 
 #include "routes/home_routes.h"
 #include "routes/cool_routes.h"
+#include "routes/chainsawman_routes.h"
 
 /*
 right now, cottage has a lot of issues.
@@ -57,10 +56,10 @@ int main(void) {
 
     //THE ROUTES
     RouteEntry home = {
-        .routeGet = homeGet,
-        .routePost = homePost,
-        .routePut = homePut,
-        .routeDelete = homeDelete
+    .routeGet = homeGet,
+    .routePost = homePost,
+    .routePut = homePut,
+    .routeDelete = homeDelete
     };
     RouteEntry cool = {
     .routeGet = coolGet,
@@ -68,10 +67,17 @@ int main(void) {
     .routePut = coolPut,
     .routeDelete = coolDelete
     };
+    RouteEntry chainsawman = {
+    .routeGet = chainsawmanGet,
+    .routePost = chainsawmanPost,
+    .routePut = chainsawmanPut,
+    .routeDelete = chainsawmanDelete
+    };
 
 
     newRoute("/cool", cool);
     newRoute("/", home);
+    newRoute("/chainsawman", chainsawman);
 
     while (true) {
         int clientfd = serverAcceptClient(socketfd, NULL, NULL);
@@ -85,7 +91,18 @@ int main(void) {
         //now we just wire up the routeMap
         //printf("NEW CLIENT\n");
 
-        if (!handleRequest(request, clientfd, NULL, GLOBALROUTES)) {
+        //quick extraData
+        siteVar* extraData = siteVarInit("global", COMPOSITE, 0, NULL);
+        if (siteVarCompositeInsertNew(&extraData, "peak", UINT, 1, &((uint_cot){67}))) {
+            printf("yippie\n");
+        }
+        else printf("not yippie\n");
+
+        siteVar* peak = siteVarCompositeAccess(extraData, "peak");
+        printf("peak: %u\n", *(uint_cot**)siteVarAccess(peak));
+    
+
+        if (!handleRequest(request, clientfd, extraData, GLOBALROUTES)) {
             printf("could not handle request\n");
             sendError(clientfd, ERROR_404);
         }

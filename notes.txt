@@ -207,3 +207,42 @@ note on potential name for this "framework"
     Sounds like a cosy thing, like gives the vibe of "simple web server
     you can deploy from home", also has simplicity in mind.
 
+
+06/08/2026:
+its been a while since ive worked on cottage, and now i have a month to release version 1.
+goals to complete before then:
+    fix up conditional HTML (done) 
+    arrays:
+        test HTML arrays (done)
+        get html arrays loaded from url (done)
+    
+    develop a better way of differentiating ints, uints and floats
+
+    improve boolcalc with wider range of sitevars now
+
+    HTML FOREACH loops
+    better openHTML error handling:
+        remove most goto failure
+
+        implement an error struct:
+            char* with error message
+            enum with error type (-1 error, 0 false, 1 true)
+            automatically print errors to stderror
+
+        implement error struct with
+        a try-catch system (try doing try, otherwise display in catch)
+        
+        for VAR, have by default display NULL, if not in a try-catch block
+        in fact, to make life easier maybe, having something like this:
+        {{VAR:variable;"error message"}}
+        where you can insert what the error message is. otherwise, it defaults to NULL.
+        
+        maybe for now, just stick to the NULL idea and TRY CATCH, and error struct
+
+    scale for multi-users
+    ensure components can be inserted inside html tags
+    ...
+    fix memory leaks
+    make better error checking/handling
+    make code safer and more readable (primarily the mode gotos in openHTML)
+    add function prototypes to the beginning of files, and lock the definitions behind COTTAGE_START.

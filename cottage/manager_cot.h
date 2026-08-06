@@ -91,6 +91,7 @@ char* prependAssetFolder(char* path) {
 
 char* cleanupPath(char* path) {
     cottageCheck(NULL);
+    if (!path) return NULL;
     //we have to read the string until the next '/' character
     //if equal to . or .., remove it
     char* newPath = (char*) calloc(strlen(path) + 1, sizeof(char));

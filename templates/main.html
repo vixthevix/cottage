@@ -19,7 +19,7 @@
         we need a way to check WHEN to check for brackets -->
         <!-- x is set to {{VAR:x}} -->
         <br>
-         <!-- fart is {{VAR:fart}} -->
+         fart is {{VAR:fart}}
 
 
          <!-- Probably have a qmap for component name to location -->
@@ -32,24 +32,15 @@
          <img src="images/xqc.gif" alt="xqc" width="100" height="100">
 
         <!-- FULL IF-ELSEIF-ELSE -->
-        {{INSERT:templates/components/displayName.html;name="Victor",age=100,greeting="What is up ladies, "}}
-        <!-- {{INSERT:templates/components/displayName.html;name=0,age=0,greeting=0}} -->
+        {{INSERT:templates/components/displayName.html;name="Victor",age=10,greeting="What is up ladies, "}}
 
-         <!-- {{INSERT:templates/components/displayName.html;name="Victor",age=20,greeting="What is up guys, "}} -->
-         <!-- {{INSERT:templates/components/displayName.html;name=name,age=x,greeting=greeting}} -->
-
-         <!-- yeah so dont do this -->
-         <!-- {{INSERT:templates/main.html}} -->
-          <!-- {{IF:(x==67)}}
-            x really is 67
-            <br>
-            {{IF:(y==2)}}
-                y really does exist
-
-            {{ENDIF}}
-
-          {{ENDIF}} -->
-
+        <!-- ARRAY CHECK -->
+        {{INSERT:templates/components/array.html;i=0,array=["hi","hello","whats up"]}}
+        <br>
+        numbers at 0 is {{VAR:numbers[0]}}
+        <br>
+        <!-- peak is {{VAR:global.peak}} -->
+        <br>
     </div>
 
 </html>

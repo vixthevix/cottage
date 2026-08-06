@@ -359,6 +359,9 @@ siteVar* BC_StrToVariable(char* exp, siteVar* variables, siteVar* originalVariab
 			printf("looking for %s inside of %s\n", remainder, compositeVars->name);
 			siteVar* returnVal = BC_StrToVariable(remainder, compositeVars, originalVariables);
 			
+			if (returnVal) printf("returnVal found\n");
+			else printf("returnVal Not found\n");
+
 			siteVarFree(compositeVars);
 			free(remainder);
 			free(var);
@@ -501,17 +504,22 @@ siteVar* BC_StrToVariable(char* exp, siteVar* variables, siteVar* originalVariab
 
 char* BC_IntToStr(int_cot target) {
 	cottageCheck(NULL);
+	
+	bool isNegative = false;
+
 	if (target == 0) {
 		char* buffer = (char*) calloc(2, sizeof(char));
 		sprintf(buffer, "0");
 		return buffer;
 	}
+	else if (target < 0) {
+		isNegative = true;
+		target *= -1;
+	}
     //to get the number of digits, use log base 10, truncate it, then add 1
     size_t digitCount = ((size_t)log10(target)) + 1;
-    char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
-    char* ptr = buffer;
-    ptr += sprintf(ptr, "%li", target);
-
+    char* buffer = (char*) calloc(digitCount + 1 + 1 , sizeof(char));
+    sprintf(buffer, "%s%li", isNegative ? "-":"", target);
     return buffer;
 }
 
@@ -555,11 +563,16 @@ char* BC_BoolToStr(bool_cot target) {
 char* BC_VariableToString(siteVar* variable, size_t index) {
 	cottageCheck(NULL);
     if (!variable) return NULL;
+	printf("hi\n");
 
     switch(variable->type) {
         case INT: {
+			printf("yep its an int\n");
             int_cot* value = (int_cot*)siteVarAccessAt(variable, index);
+			printf("did we get it\n");
+			if (!value) printf("value not got\n");
             char* buffer = BC_IntToStr(*value);
+			printf("buffer made\n");
             free(value);
             return buffer;
         }
@@ -623,24 +636,32 @@ siteVar* BC_ArrayToSiteVar(char* name, char* exp, siteVar* variables) {
 
 	size_t i = 1; //starting from not the bracket
 
-	while (i < strlen(exp)) {
+	while (i < strlen(exp) - 1) {
 		size_t k = 0;
-		while (exp[i] != ',' && i < strlen(exp)) { //read until next variable
+		while (exp[i] != ',' && i < strlen(exp) - 1) { //read until next variable
 			arrayVar[k++] = exp[i++];
 		}
-		if (i >= strlen(exp)) { //reached the end
+		if (i >= strlen(exp) - 1) { //reached the end
 			continue; //end early
 		}
 		i++; //to skip the comma
 
+		printf("arraytositevar: arrayVar is %s\n", arrayVar);
+
 		VARTYPE type = BC_StrToType(arrayVar);
+		printf("arraytositevar: type is %i\n", type);
 		if (!typeFound) {
 			arrayType = type;
 			typeFound = true;
 			if (arrayType == ERROR) { //must be a variable, we dont set the type yet
 
 			}
-			else storage = siteVarInit(name, arrayType, 2, NULL); //2 to make it an array
+			else {
+				printf("doing this now\n");
+				storage = siteVarInit(name, arrayType, 0, NULL); //2 to make it an array
+				storage->isArray = true;
+				printf("this has been done\n");
+			}
 		}
 		else {
 			if (type != arrayType) goto failure;
@@ -649,27 +670,29 @@ siteVar* BC_ArrayToSiteVar(char* name, char* exp, siteVar* variables) {
 		switch (type) {
 			case INT: {
 				int_cot arrayVal = BC_StrToInt(arrayVar);
-				siteVarInsert(storage, &arrayVal);
+				siteVarInsert(&storage, &arrayVal);
 				break;
 			}
 			case UINT: {
 				uint_cot arrayVal = BC_StrToUInt(arrayVar);
-				siteVarInsert(storage, &arrayVal);
+				siteVarInsert(&storage, &arrayVal);
 				break;
 			}
 			case FLOAT: {
 				float_cot arrayVal = BC_StrToFloat(arrayVar);
-				siteVarInsert(storage, &arrayVal);
+				siteVarInsert(&storage, &arrayVal);
 				break;
 			}
 			case BOOL: {
 				bool_cot arrayVal = BC_StrToBool(arrayVar);
-				siteVarInsert(storage, &arrayVal);
+				siteVarInsert(&storage, &arrayVal);
 				break;
 			}
 			case STRING: {
+				printf("arraytositevar: its a string\n");
 				string_cot arrayVal = BC_StrToStr(arrayVar);
-				siteVarInsert(storage, &arrayVal);
+				printf("arrayVal is %s\n", arrayVal);
+				siteVarInsert(&storage, &arrayVal);
 				free(arrayVal);
 				break;
 			}
@@ -693,7 +716,7 @@ siteVar* BC_ArrayToSiteVar(char* name, char* exp, siteVar* variables) {
 
 				//can only be one element
 				void* arrayVal_Value = siteVarAccess(arrayVal);
-				siteVarInsert(storage, arrayVal);
+				siteVarInsert(&storage, arrayVal);
 				free(arrayVal_Value);
 				siteVarFree(arrayVal);
 
@@ -702,6 +725,84 @@ siteVar* BC_ArrayToSiteVar(char* name, char* exp, siteVar* variables) {
 
 		//reset arrayVar
 		memset(arrayVar, 0, strlen(arrayVar));
+	}
+
+	//we must check for that last variable
+	printf("arraytositevar: arrayVar is %s\n", arrayVar);
+
+	VARTYPE type = BC_StrToType(arrayVar);
+	printf("arraytositevar: type is %i\n", type);
+	if (!typeFound) {
+		arrayType = type;
+		typeFound = true;
+		if (arrayType == ERROR) { //must be a variable, we dont set the type yet
+
+		}
+		else {
+			printf("doing this now\n");
+			storage = siteVarInit(name, arrayType, 0, NULL); //2 to make it an array
+			storage->isArray = true;
+			printf("this has been done\n");
+		}
+	}
+	else {
+		if (type != arrayType) goto failure;
+	}
+	//void* storage = NULL;
+	switch (type) {
+		case INT: {
+			int_cot arrayVal = BC_StrToInt(arrayVar);
+			siteVarInsert(&storage, &arrayVal);
+			break;
+		}
+		case UINT: {
+			uint_cot arrayVal = BC_StrToUInt(arrayVar);
+			siteVarInsert(&storage, &arrayVal);
+			break;
+		}
+		case FLOAT: {
+			float_cot arrayVal = BC_StrToFloat(arrayVar);
+			siteVarInsert(&storage, &arrayVal);
+			break;
+		}
+		case BOOL: {
+			bool_cot arrayVal = BC_StrToBool(arrayVar);
+			siteVarInsert(&storage, &arrayVal);
+			break;
+		}
+		case STRING: {
+			printf("arraytositevar: its a string\n");
+			string_cot arrayVal = BC_StrToStr(arrayVar);
+			printf("arrayVal is %s\n", arrayVal);
+			siteVarInsert(&storage, &arrayVal);
+			free(arrayVal);
+			break;
+		}
+		default: { //its a variable
+			siteVar* arrayVal = BC_StrToVariable(arrayVar, variables, variables);
+			if (!arrayVal) {
+				siteVarFree(arrayVal);
+				goto failure;
+			}
+			//if this is a composite, we must throw failure
+			//because it assumes we have an array of composites
+			//which is not allowed
+			if (arrayVal->type == COMPOSITE) goto failure;
+
+			//initialise storage here if not done yet
+			if (!typeFound) {
+				typeFound = true;
+				arrayType = arrayVal->type;
+				storage = siteVarInit(name, arrayType, 2, NULL);
+			}
+
+			//can only be one element
+			void* arrayVal_Value = siteVarAccess(arrayVal);
+			siteVarInsert(&storage, arrayVal);
+			free(arrayVal_Value);
+			siteVarFree(arrayVal);
+
+		}
 	}
 
 	return storage;

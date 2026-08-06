@@ -494,17 +494,17 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 					default:  result = false; break;
 				}
 				stack[++sp] = siteVarInit("", BOOL, 1, &((bool){result}));
-				printf("error probably here\n");
+				//printf("error probably here\n");
 				siteVarFree(a);
 				siteVarFree(b);
 				a = NULL;
 				b = NULL;
-				printf("error probably not here\n");
+				//printf("error probably not here\n");
 
 			}
 			free(aVal);
 			free(bVal);
-			printf("error maybe here?\n");
+			//printf("error maybe here?\n");
 		}
 	}
 
