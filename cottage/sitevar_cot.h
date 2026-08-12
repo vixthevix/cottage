@@ -96,7 +96,7 @@ typedef siteVar* composite_cot;
 // #define INTCOT_MAX INT64_MAX
 
 bool siteVarFree(siteVar* target);
-siteVar* INTERNAL_siteVarCompositeResize(siteVar* target);
+siteVar* INTERNAL_siteVarCompositeResize(siteVar* target, bool increase);
 siteVar* siteVarInit(char* name, VARTYPE type, size_t size, void* data);
 void* siteVarAccess(siteVar* target);
 siteVar* siteVarClone(siteVar* target);
@@ -126,7 +126,7 @@ bool siteVarCompositeInsert(siteVar** target, siteVar* var) {
     const unsigned int load = (*target)->arrayItemCount * 100 / (*target)->arrayLen;
     if (load > 60) {
         printf("resizing...\n");
-        (*target) = INTERNAL_siteVarCompositeResize((*target));
+        (*target) = INTERNAL_siteVarCompositeResize((*target), true);
     }
 
     printf("composite insert\n");
@@ -190,6 +190,68 @@ bool siteVarCompositeInsertNew(siteVar** target, char* name, VARTYPE type, size_
     return state;
 }
 
+
+//this function adds var directly inside of target,
+//rather than make a clone.
+bool siteVarCompositeInsertReference(siteVar** target, siteVar* var) {
+    cottageCheck(false);
+    if (!(*target) || !var) return 0;
+    if ((*target)->type != COMPOSITE) return 0;
+    
+    const unsigned int load = (*target)->arrayItemCount * 100 / (*target)->arrayLen;
+    if (load > 60) {
+        printf("resizing...\n");
+        (*target) = INTERNAL_siteVarCompositeResize((*target), true);
+    }
+
+    //printf("composite insert\n");
+
+    //copy over var to insert
+    
+    size_t initpos = stringHash(var->name) % (*target)->arrayLen;
+    size_t index;
+    siteVar* curVar;
+
+    printf("new made\n");
+
+    siteVar** targetData = (siteVar**)((*target)->data);
+    printf("not invalid pointer\n");
+
+    for (size_t i = 0; i < (*target)->arrayLen; i++) {
+        index = (initpos + i) % (*target)->arrayLen;
+        curVar = targetData[index];
+
+        if (curVar == NULL) {
+            //new->pd++;
+            //printf("(%s, %s) stored at index %lu inside of %s\n", new->name, *(char**)siteVarAccess(new), index, (*target)->name);
+            targetData[index] = var;
+            (*target)->arrayItemCount++;
+            //printf("uhhh\n");
+            return true;
+        }
+        //we replace variables with the same name
+        if (!strcmp(curVar->name, var->name)) {
+            //new->pd++;
+            //printf("%s stored at index %lu inside of %s\n", new->name, index, (*target)->name);
+            siteVarFree(curVar);
+            targetData[index] = var;
+            return true;
+        }
+
+        if (var->pd > curVar->pd) {
+            targetData[index] = var;
+            var = curVar;
+        }
+
+        var->pd++;
+        //printf("carried over\n");
+    }
+
+    //in case things go wrong
+    //siteVarFree(new);
+    return false;
+}
+
 //#define siteVarCompositeAccess siteVarCompositeGet
 siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
     cottageCheck(NULL);
@@ -227,6 +289,98 @@ siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
     }
 
     return NULL;
+}
+
+//gets the actual pointer to the value at name
+siteVar* siteVarCompositeAccessReference(siteVar* target, char* name) {
+    cottageCheck(NULL);
+    if (!target || target->type != COMPOSITE) return 0;
+    
+    size_t hashed = stringHash(name);
+    size_t initpos = hashed % target->arrayLen;
+
+    size_t index;
+    siteVar* curVar;
+    int16_t curpd = 0;
+
+    siteVar** data = (siteVar**)target->data;
+
+    for (size_t i = 0; i < target->arrayLen; i++) {
+        index = (initpos + i) % target->arrayLen;
+        curVar = data[index];
+        printf("hashmap looking at index %lu of %s for %s\n", index, target->name, name);
+
+        if (curVar == NULL || curpd > curVar->pd) {
+            //printf("is curVar pd (%i) < curpd (%i)? %s\n", curVar->pd, curpd, (curVar->pd < curpd) ? "true":"false");
+            return NULL;
+        }
+
+        //returning a reference here
+        //nope now returning a clone
+        if (!strcmp(curVar->name, name)) {
+            if (curVar->type == STRING) printf("%s is a string\n", curVar->name);
+            printf("curVar name is %s, curVar value is %u\n", curVar->name, *((uint_cot*)curVar->data));
+            return curVar;
+        }
+
+        // if (curpd > curVar->pd) return NULL;
+        curpd++;
+    }
+
+    return NULL;
+}
+
+
+bool siteVarCompositeDelete(siteVar** target, char* name) {
+    cottageCheck(false);
+    if (!(*target) || !name) return 0;
+    if ((*target)->type != COMPOSITE) return 0;
+    
+    // const unsigned int load = (*target)->arrayItemCount * 100 / (*target)->arrayLen;
+    // if (load < 30) {
+    //     printf("resizing...\n");
+    //     (*target) = INTERNAL_siteVarCompositeResize((*target), false);
+    // }
+
+    printf("composite delete\n");
+
+    size_t initpos = stringHash(name) % (*target)->arrayLen;
+    size_t index;
+    siteVar* curVar;
+    int16_t curpd = 0;
+
+    printf("new made\n");
+
+    siteVar** targetData = (siteVar**)((*target)->data);
+    printf("not invalid pointer\n");
+
+    for (size_t i = 0; i < (*target)->arrayLen; i++) {
+        index = (initpos + i) % (*target)->arrayLen;
+        curVar = targetData[index];
+        printf("hashmap looking at index %lu of %s for %s\n", index, (*target)->name, name);
+
+        if (curVar == NULL || curpd > curVar->pd) {
+            //value does not exist
+            return false;
+        }
+
+        //returning a reference here
+        //nope now returning a clone
+        if (!strcmp(curVar->name, name)) {
+            //free the value, set to null, then decrease size
+            //siteVarFree(curVar);
+            curVar = NULL;
+            siteVarFree(targetData[index]);
+            targetData[index] = NULL;
+            (*target)->arrayItemCount--;
+            return true;
+        }
+
+        // if (curpd > curVar->pd) return NULL;
+        curpd++;
+    }
+
+    return false;
 }
 
 //no siteVarCompositeUpdate because insert kind of handles that.
@@ -270,10 +424,13 @@ siteVar* siteVarCompositeCombine(siteVar* home, siteVar* intruder) {
     return new;
 }
 
-siteVar* INTERNAL_siteVarCompositeResize(siteVar* target) {
+siteVar* INTERNAL_siteVarCompositeResize(siteVar* target, bool increase) {
     cottageCheck(NULL);
     if (!target || target->type != COMPOSITE) return 0;
-    siteVar* new = INTERNAL_siteVarCompositeNewSize(target->arrayLen);
+
+    siteVar* new = NULL;
+    if (increase) new = INTERNAL_siteVarCompositeNewSize(target->arrayLen);
+    else new = INTERNAL_siteVarCompositeNewSize(target->arrayLen >> 2);
 
     new->arrayItemCount = target->arrayItemCount;
     new->isArray = target->isArray;
@@ -426,27 +583,39 @@ bool siteVarFree(siteVar* target) {
     cottageCheck(false);
     if (!target) return false;
 
-
+    printf("freeing %s...\n", target->name);
     if (target->type != COMPOSITE && target->type != STRING) { //base case
-        free(target->data);
+        printf("%s is normal\n", target->name);
+        if (target->data) free(target->data);
     }
     else if (target->type == STRING) {
+        printf("%s is string\n", target->name);
         char** data = (char**) target->data;
+        if (!data) return false;
         for (size_t i = 0; i < target->arrayItemCount; i++) {
-                if (data[i]) free(data[i]);
+            printf("freeing %u\n", i);
+            if (data[i]) free(data[i]);
         }
         free(data);
+        printf("%s fully freed\n", target->name);
     }
     else { //recursive case
+        printf("%s is composite\n", target->name);
         for (size_t i = 0; i < target->arrayLen; i++) {
             siteVar* cur = ((siteVar**)target->data)[i];
-            siteVarFree(cur);
+            if (cur) {
+                printf("composite cur received %u: %s\n", i, cur->name);
+                siteVarFree(cur);
+            }
         }
     }
     
     //free everything else
     free(target->name);
+    target->name = NULL;
     free(target);
+    target = NULL;
+    printf("fully freed\n");
     return true;
 }
 

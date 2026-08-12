@@ -7,6 +7,7 @@
 #include "sitevar_cot.h"
 #include "init_cot.h"
 
+
 bool sendNormal(char* filepath, char* type, int client) {
     cottageCheck(false);
     char header[128] = {0};
@@ -43,6 +44,38 @@ bool sendNormal(char* filepath, char* type, int client) {
     return true;
 }
 
+typedef struct dataVector {
+    char* data;
+    uint32_t capacity;
+    uint32_t index;
+} dataVector;
+
+dataVector dataVectorInit(uint32_t capacity) {
+    if (capacity == 0) {
+        return (dataVector){0, 0, 0};
+    }
+    
+    dataVector target = {
+        .data = (char*) calloc(capacity, sizeof(char)),
+        .capacity = capacity,
+        .index = 0,
+    };
+
+    return target;
+}
+
+bool dataVectorPush(dataVector* target, char c) {
+    uint32_t load = target->index / target->capacity * 100;
+    if (load > 60) {
+        target->capacity <<= 1;
+        target->data = (char*) realloc(target->data, target->capacity * sizeof(char));
+        if (!target->data) return false;
+    }
+
+    target->data[target->index++] = c;
+    return true;
+}
+
 
 typedef struct conditionalState {
     bool valid;
@@ -50,6 +83,16 @@ typedef struct conditionalState {
     bool elseAppeared;
     bool chainSuccess;
 } conditionalState;
+
+typedef struct loopState {
+    siteVar* iterator;
+    void* list;
+    VARTYPE listType;
+    uint_cot count;
+    uint_cot cur;
+    bool listComposite;
+    uint32_t returnIndex;
+} loopState;
 
 //recursive function for opening a file
 //need it to open a file within a file
@@ -66,10 +109,16 @@ char* openHTML(const char* filepath, siteVar* variables) {
     unsigned int size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
+    char* fullFile = (char*) malloc(size);
+    fread(fullFile, sizeof(char), size, file);
+    //fseek(file, 0, SEEK_SET);
+    uint32_t fi = 0;
+
     unsigned int curDataSize = size + 1;
+    dataVector data = dataVectorInit(curDataSize);
 
     //we will try write to data using a for loop, to keep track of our frontend shenanigans
-    char* data = (char*) calloc(curDataSize, sizeof(char));
+    //char* data = (char*) calloc(curDataSize, sizeof(char));
     int c = 0, di = 0;
 
     //use a stack to keep track of brackets
@@ -116,6 +165,13 @@ char* openHTML(const char* filepath, siteVar* variables) {
     //are safe to check.
     states[0].valid = true; states[0].ifAppeared = false; states[0].elseAppeared = false; states[0].chainSuccess = false;
 
+    //array to keep track of loops
+    loopState loopStates[512] = {0};
+    int curLoopState = -1;
+    //layer 0 is the base state. here, everything is 0
+    //we dont need to perform any checks or send any signals, since there
+    //is only one entrance and exit for a for loop
+
     int mode = -1;
     const int
     commandSize = 50,
@@ -124,8 +180,9 @@ char* openHTML(const char* filepath, siteVar* variables) {
     char* offload = (char*) calloc(offloadSize, sizeof(char));
     int ci = 0, oi = 0;
 
-
-    while ((c = fgetc(file)) != EOF) {
+    while (fi < size) {
+        c = fullFile[fi++];
+    //while ((c = fgetc(file)) != EOF) {
         if (inCheck) {
             if (c != ':' && c != '}') {
                 command[ci++] = c;
@@ -306,6 +363,43 @@ char* openHTML(const char* filepath, siteVar* variables) {
             
             // else if (!ifValid) mode = -1;
             else if (!states[curCondState].valid) mode = -1;
+
+            //FOR LOOP STUFF
+            else if (!strcmp(command, "FOR")) {
+                curLoopState++;
+                if (curLoopState < 0) goto failure;
+                mode = 3;
+                goto mode3;
+            }
+            else if (!strcmp(command, "ENDFOR")) {
+                printf("ENDFOR REACHED\n");
+                if (curLoopState <= -1) goto failure;
+                loopStates[curLoopState].cur++;
+                if (loopStates[curLoopState].cur == loopStates[curLoopState].count) {
+                    printf("ENDFOR END REACHED\n");
+                    //the end.
+                    //we delete the iterator from our variables, and go down a loopstate
+                    printf("iterator name: %s\n", loopStates[curLoopState].iterator->name);
+                    siteVarCompositeDelete(&variables, loopStates[curLoopState].iterator->name);
+                    loopStates[curLoopState].iterator = NULL;
+                    curLoopState--;
+
+                }
+                else {
+                    //otherwise, update the iterator, and set di to where we need to be
+                    printf("ENDFOR CONTINUE REACHED\n");
+                    size_t varSize = INTERNAL_siteVarTypeSize(loopStates[curLoopState].listType);
+                    void* value = &loopStates[curLoopState].list[loopStates[curLoopState].cur * varSize];
+                    siteVarUpdate(loopStates[curLoopState].iterator, value);
+                    fi = loopStates[curLoopState].returnIndex;
+                }
+                
+                mode = -1;
+                finishedEmbedRead = true;
+                oi = 0;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+            }
             
             else if (!strcmp(command, "VAR")) {
                 mode = 0;
@@ -349,7 +443,8 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 if (value) {
                     //write into data
                     for (int j = 0; j < strlen(value); j++, di++) {
-                        data[di] = value[j];
+                        //data[di] = value[j];
+                        dataVectorPush(&data, value[j]);
                     }
                     free(value);
                     free(var);
@@ -577,21 +672,38 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
                 readINPUT:
                 char* dataINPUT = openHTML(link, newVariables);
+                printf("mode1: dataINPUT read\n");
                 free(link);
+                printf("mode1: link freed\n");
 
                 //reset newVariables
-                if (newVariables) siteVarFree(newVariables);
-                newVariables = NULL;
+                if (newVariables) {
+                    siteVar** newVariablesData = (siteVar**)newVariables->data;
+                    if (!newVariablesData) printf("newVariablesData invalid\n");
+                    for (size_t i = 0; i < newVariables->arrayLen; i++) {
+                        siteVar* bozo = newVariablesData[i];
+                        printf("%u\n", i);
+                        if (bozo && bozo->name) {
+                            printf("valid\n");
+                            printf("bozo at %u is %s\n", i, bozo->name);
+                        }
+                    }
+                    printf("done\n");
+                    if (newVariables) siteVarFree(newVariables);
+                    newVariables = NULL;
+                }
+                printf("mode1: newVariables freed\n");
                 //copy over the new data
                 if (dataINPUT) {
                     printf("input data got\n");
                     //printf("%s\n", dataINPUT);
                     //we need to reallocate our data to take into account
                     //increases in size
-                    curDataSize += strlen(dataINPUT);
-                    data = (char*) realloc(data, curDataSize);
+                    //curDataSize += strlen(dataINPUT);
+                    //data = (char*) realloc(data, curDataSize);
                     for (j = 0; j < strlen(dataINPUT); j++, di++) {
-                        data[di] = dataINPUT[j];
+                        //data[di] = dataINPUT[j];
+                        dataVectorPush(&data, dataINPUT[j]);
                     }
                     printf("dataINPUT read done\n");
                 }
@@ -648,6 +760,99 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 memset(offload, 0, offloadSize * sizeof(char));
             }
         }
+        else if (mode == 3) {
+            mode3:
+            if (c != '}') offload[oi++] = c;
+            else {
+                finishedEmbedRead = true;
+                oi = 0;
+                if (offload) {
+                    /*
+                        offload is split into two sections, the iterator,
+                        and the target.
+                        the target can be either a set range, an array, or a siteVar.
+                        if siteVar, only valid if its an array, or a composite.
+                        range is in the format (start, count)
+                        start is inclusive, count is exclusive.
+                        maybe eventually make it (start, count, jump), where jump is how much to increment start by.
+                    */
+                    char iteratorName[256] = {0};
+                    uint32_t i = 0;
+                    while (offload[i] != ',') {
+                        iteratorName[i] = offload[i];
+                        i++;
+                    }
+                    i++;
+                    //now get the target
+                    char iteratorTarget[256] = {0};
+                    uint32_t j = 0;
+                    while (i < strlen(offload)) {
+                        iteratorTarget[j++] = offload[i++];
+                    }
+                    printf("mode is 3\niterator is %s and target is %s\n", iteratorName, iteratorTarget);
+                    
+                    //now we check what target can be
+                    //is it a specified range?
+                    if (iteratorTarget[0] == '(' && iteratorTarget[strlen(iteratorTarget) - 1] == ')') {
+                        BC_delAt(iteratorTarget, 0);
+                        BC_delAt(iteratorTarget, strlen(iteratorTarget) - 1);
+
+                        //extract start and end
+                        char startString[256] = {0};
+                        char countString[256] = {0};
+                        int rangei = 0;
+                        bool isStart = true;
+                        for (int k = 0; k < strlen(iteratorTarget); k++) {
+                            if (iteratorTarget[k] == ',') {
+                                rangei = 0;
+                                isStart = false;
+                                continue;
+                            }
+                            if (isStart) startString[rangei++] = iteratorTarget[k];
+                            else countString[rangei++] = iteratorTarget[k];
+                        }
+
+                        //we have to ensure that startString and countString are both
+                        //UINTS. right now, this is for simplicity
+                        if (!BC_isUInt(startString) || !BC_isUInt(countString)) goto failure;
+
+                        uint_cot start = BC_StrToUInt(startString);
+                        uint_cot count = BC_StrToUInt(countString);
+
+                        //we have to now essentially create a new array
+                        uint_cot* forArray = (uint_cot*) malloc(count * sizeof(uint_cot));
+                        for (uint_cot k = 0; k < count; k++) {
+                            forArray[k] = start++;
+                        }
+
+                        loopStates[curLoopState].count = count;
+                        loopStates[curLoopState].cur = 0;
+                        loopStates[curLoopState].list = forArray;
+                        loopStates[curLoopState].listComposite = false;
+                        loopStates[curLoopState].listType = UINT;
+                        //right now, we are on the first inner curly bracket
+                        //that means we jump to 2 ahead of where we are right now;
+                        loopStates[curLoopState].returnIndex = fi + 2;
+
+                        //we create a new iterator siteVar, initialise it to 
+                        //the first value of our array, and add it to our composites
+
+                        siteVar* iterator = siteVarInit(iteratorName, UINT, 1, &forArray[0]);
+                        loopStates[curLoopState].iterator = iterator;
+                        //insert this reference into our variables
+                        siteVarCompositeInsertReference(&variables, iterator);
+
+
+
+                    }
+                    else goto failure;
+
+                }
+                mode = -1;
+                memset(command, 0, commandSize * sizeof(char));
+                memset(offload, 0, offloadSize * sizeof(char));
+            }
+        }
         
         else if (c == '}' && finishedEmbedRead && !diamondCount) { //to ensure the final bracket is skipped
             finishedEmbedRead = false;
@@ -665,13 +870,15 @@ char* openHTML(const char* filepath, siteVar* variables) {
             //if its a curly, we set inCheck and continue on.
             //if not, we must revert c and goto data write
 
-            char future = fgetc(file);
+            // char future = fgetc(file);
+            char future = fullFile[fi++];
             // if (future == EOF) goto failure;
             if (future == '{') {
                 inCheck = true;
             }
             else {
-                fseek(file, -1, SEEK_CUR);
+                //fseek(file, -1, SEEK_CUR);
+                fi--;
                 goto dataWrite;
             }
         }
@@ -684,7 +891,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
             if (states[curCondState].valid) {
                 if (c == '<') diamondCount++;
                 else if (c == '>') diamondCount--;
-                data[di] = (char)c;
+                dataVectorPush(&data, (char)c);
                 di++;
             }
         }
@@ -693,20 +900,32 @@ char* openHTML(const char* filepath, siteVar* variables) {
     
     failure:
     printf("failed\n");
-    free(data);
-    data = NULL;
+    free(data.data);
+    data.data = NULL;
 
     success:
     printf("success\n");
     fclose(file);
     free(offload);
     free(command);
+    free(fullFile);
     //qmapFree(newVariables);
-    if (data) {
+
+    //ensure that the state indexes are where they should be
+    if (curCondState != 0 || curLoopState != -1) {
+        //failure
+        printf("failed due to conditional/loop state invalid\n");
+        free(data.data);
+        data.data = NULL;
+    }
+
+    if (data.data) {
         //set safety null terminator
         printf("data valid\n");
-        data[di] = 0;
-        return data;
+        data.data[data.index] = 0;
+        printf("data null terminated\n");
+        printf("full data:\n\n%s\n\n", data.data);
+        return data.data;
     }
     else {
         return NULL;
@@ -720,7 +939,8 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
     //first, prepare the html
 
     char* data = openHTML(filepath, variables);
-    //printf("full data:\n\n%s\n\n", data);
+    printf("openHTML success\n");
+    printf("full data:\n\n%s\n\n", data);
 
     if (data) goto success;
     

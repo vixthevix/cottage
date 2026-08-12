@@ -216,6 +216,24 @@ goals to complete before then:
         test HTML arrays (done)
         get html arrays loaded from url (done)
     
+    HTML FOREACH loops:
+        similar state stack system to IF
+        enclosed by ENDFOR
+        state contains:
+            reference to sitevar iterator (i)
+                this requires new sitevar functions for inserting and retreiving
+                references within composites.
+            void* that is either directly a list of types (INT, UINT, STRING) etc.
+            or a sitevar composite.
+            bool that tells if void* above is a composite
+            data read index to return to once ENDFOR reached.
+
+        may need rewrite of reallocation process for data, using a load calculator and such
+        turn it into a vector yk
+
+    
+
+    
     develop a better way of differentiating ints, uints and floats
 
     improve boolcalc with wider range of sitevars now
