@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include <math.h>
+#include <time.h>
 
 //needed for sockets
 #include <sys/types.h>

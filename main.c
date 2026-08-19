@@ -1,3 +1,4 @@
+#include "cottage/error_cot.h"
 #include "cottage/sitevar_cot.h"
 #define COTTAGE_START
 #include "cottage/cottage.h"
@@ -5,6 +6,7 @@
 #include "routes/home_routes.h"
 #include "routes/cool_routes.h"
 #include "routes/chainsawman_routes.h"
+#include "routes/notes_routes.h"
 
 /*
 right now, cottage has a lot of issues.
@@ -73,18 +75,27 @@ int main(void) {
     .routePut = chainsawmanPut,
     .routeDelete = chainsawmanDelete
     };
+    RouteEntry notes = {
+    .routeGet = notesGet,
+    .routePost = notesPost,
+    .routePut = notesPut,
+    .routeDelete = notesDelete
+    };
 
-
-    newRoute("/cool", cool);
     newRoute("/", home);
+    newRoute("/cool", cool);
     newRoute("/chainsawman", chainsawman);
+    newRoute("/notes", notes);
 
     while (true) {
         int clientfd = serverAcceptClient(socketfd, NULL, NULL);
         if (clientfd < 0) continue;
         char* clientOffload = serverGetRequest(clientfd);
         //printf("client offload is \n%s\n", clientOffload);
-        HttpRequest request = splitHttpRequest(clientOffload);
+        HttpRequest request = {0};
+        if (splitHttpRequest(&request, clientOffload) .status == COT_ERROR) {
+            return 1;
+        }
         debugHttpRequest(request);
         //we have no extra data
         //we have a request

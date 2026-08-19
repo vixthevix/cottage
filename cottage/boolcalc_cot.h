@@ -29,6 +29,7 @@ var.subvar => variable stored inside composite. can be subvar.subsubvar or subva
 #include "sitevar_cot.h"
 #include "conversion_cot.h"
 #include "init_cot.h"
+#include "error_cot.h"
 
 
 //removes all spaces, and turns double operators into single ones. also performs check.
@@ -207,10 +208,10 @@ floating point number checking
 string comparison (includes single character strings)
 */
 
-bool BC_evaluate(const char* expression, siteVar* variables) {
-	cottageCheck(false);
+cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) {
+	//cottageCheck();
 	//check if the variables are initialised properly
-	if (!variables || variables->type != COMPOSITE) return false;
+	if (!variables || variables->type != COMPOSITE) return newResultError("BC_evaluate: invalid variables");
 	
 
 	//stack becomes of type siteVar, translations to primitives
@@ -278,13 +279,19 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 				varVal = siteVarInit("", BOOL, 1, &boolean);
 			}
             else { //must be a variable
-
-				varVal = BC_StrToVariable(value, variables, variables);
-				if (!varVal) return 0; //if variable is not defined, terminate
+				
+				if (BC_StrToVariable(&varVal, value, variables, variables).status == COT_ERROR) {
+					return newResultError("BC_evaluate: invalid element in expression"); //if variable is not defined, terminate
+				}
+				//if (!varVal) return newResultError("BC_evaluate: invalid element in expression"); //if variable is not defined, terminate
 
 				if (varVal->type == STRING) {
 					printf("%s is a string, with value %s\n", varVal->name, *((char**)siteVarAccess(varVal)));
 				}
+				// //cannot operate on composites
+				// if (varVal->type == COMPOSITE) {
+				// 	return false;
+				// }
             }
 
             stack[++sp] = varVal;
@@ -347,7 +354,7 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 		}
 		else if (BC_isOperator(c)) {
 			//must have at least two numbers in here
-			if (sp < 1) return false;
+			if (sp < 1) return newResultError("BC_evaluate: stack pointer underflow");;
 
 
 			//now comes the tricky part.
@@ -446,6 +453,7 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 					case '^': {
 						break;
 					}
+					default: return newResultError("BC_evaluate: invalid operator found");
 				}
 			}
 			else {
@@ -477,23 +485,26 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 
 				*/
 				
-				generalNumber aNum = BC_siteVarToNumber(a->type, aVal);
-				generalNumber bNum = BC_siteVarToNumber(b->type, bVal);
+				generalNumber aNum = 0, bNum = 0;
+				if (BC_siteVarToNumber(&aNum, a->type, aVal).status == COT_ERROR || BC_siteVarToNumber(&bNum, b->type, bVal).status == COT_ERROR) {
+					return newResultError("BC_evaluate: a number was invalid");
+				}
+				//BC_siteVarToNumber(b->type, bVal);
 
 				printf("aNum is %lf, bNum is %lf\n", aNum, bNum);
 
 
-				bool result = false;
+				bool curResult = false;
 				switch (c) {
-					case '<': result = (aNum < bNum); break;
-					case '>': result = (aNum > bNum); break;
-					case '&': result = (aNum && bNum); break;
-					case '|': result = (aNum || bNum); break;
-					case '=': result = (aNum == bNum); break; // Note: careful with strict float equality
-					case '^': result = (aNum != bNum); break;
-					default:  result = false; break;
+					case '<': curResult = (aNum < bNum); break;
+					case '>': curResult = (aNum > bNum); break;
+					case '&': curResult = (aNum && bNum); break;
+					case '|': curResult = (aNum || bNum); break;
+					case '=': curResult = (aNum == bNum); break; // Note: careful with strict float equality
+					case '^': curResult = (aNum != bNum); break;
+					default:  return newResultError("BC_evaluate: invalid operator found");
 				}
-				stack[++sp] = siteVarInit("", BOOL, 1, &((bool){result}));
+				stack[++sp] = siteVarInit("", BOOL, 1, &((bool){curResult}));
 				//printf("error probably here\n");
 				siteVarFree(a);
 				siteVarFree(b);
@@ -513,11 +524,11 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 		for (uint64_t i = 0; i < stackSize; i++) {
 			siteVarFree(stack[i]);
 		}
-		return false;
+		return newResultError("BC_evaluate: stack pointer not 0 at end of evaluation");
 	}
 	
 	bool* resultptr = (bool*)siteVarAccess(stack[0]);
-	bool result = (*resultptr) && true;
+	*result = (*resultptr) && true;
 	free(resultptr);
 
 	//free the whole stack
@@ -525,8 +536,7 @@ bool BC_evaluate(const char* expression, siteVar* variables) {
 		siteVarFree(stack[i]);
 	}
 
-	if (result) return true;
-	return false;
+	return newResultOK();
 }
 
 /*

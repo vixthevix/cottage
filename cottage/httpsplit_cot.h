@@ -25,6 +25,7 @@ but thats pretty much it
 
 
 #include "dependencies_cot.h"
+#include "error_cot.h"
 #include "init_cot.h"
 #include "manager_cot.h"
 #include "routefunction_cot.h"
@@ -90,7 +91,8 @@ bool HttpRequestValid(HttpRequest request) {
 
 
 
-HttpRequest splitHttpRequest(char* data) {
+cotResult splitHttpRequest(HttpRequest* input, char* data) {
+    if (!input) return newResultError("splitHttpRequest: input is empty");
     HttpRequest error = {
         .target = NULL,
         .options = NULL,
@@ -98,7 +100,7 @@ HttpRequest splitHttpRequest(char* data) {
         .version = -1,
         .type = UNKNOWN
     };
-    cottageCheck(error);
+    //cottageCheck(error);
 
 
     HttpRequest request = {
@@ -110,7 +112,10 @@ HttpRequest splitHttpRequest(char* data) {
     };
 
     //check for valid data
-    if (!data || strlen(data) == 0) return error;
+    if (!data || strlen(data) == 0) {
+        *input = error;
+        return newResultError("splitHttpRequest: data is invalid");
+    }
     //printf("data valid\n");
     //first line has type, target and version, separated by spaces
 
@@ -151,7 +156,8 @@ HttpRequest splitHttpRequest(char* data) {
     if ((data[dataIndex] == '\r' && data[dataIndex + 1] == '\n') || dataIndex >= dataLen) dataIndex += 2;
     else {
         HttpRequestFree(request);
-        return error;
+        *input = error;
+        return newResultError("splitHttpRequest: data header is formatted incorrectly");
     }
 
     //for the following, we have multiple lines.
@@ -220,7 +226,8 @@ HttpRequest splitHttpRequest(char* data) {
     if ((data[dataIndex] == '\r' && data[dataIndex + 1] == '\n') || dataIndex >= dataLen) dataIndex += 2;
     else {
         HttpRequestFree(request);
-        return error;
+        *input = error;
+        return newResultError("splitHttpRequest: data options are formatted incorrectly");
     }
 
     //finally we have our offload
@@ -233,8 +240,8 @@ HttpRequest splitHttpRequest(char* data) {
     }
     else request.payload = NULL;
 
-
-    return request;
+    *input = request;
+    return newResultOK();
 }
 
 int hexToInt(char hex) {
@@ -380,7 +387,7 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
     free(linkDecode);
 
     if (!fileSent) {
-        printf("stylesheet not sent\n");
+        newResultError("handleRequest: GET for asset failed");
         return false;
     }
 
@@ -394,7 +401,10 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
 //but this will involve some encoding
 siteVar* offloadToVariables(char* offload) {
     cottageCheck(NULL);
-    if (!offload || strlen(offload) <= 0) return NULL;
+    if (!offload || strlen(offload) <= 0) {
+        newResultError("offloadToVariables: offload is invalid");
+        return NULL;
+    }
 
     //before starting, we need to format our offload.
     //it has weird symbols, particularily with strings
@@ -411,7 +421,11 @@ siteVar* offloadToVariables(char* offload) {
     size_t index = 0;
 
     siteVar* variables = siteVarInit("variables", COMPOSITE, 0, NULL);
-
+    if (!variables) {
+        newResultError("offloadToVariables: could not initialise variables");
+        return NULL;
+    }
+    
     bool state = false;
     printf("offload to variables start\n");
     for (size_t i = 0; i < strlen(offload); i++) {
@@ -424,6 +438,7 @@ siteVar* offloadToVariables(char* offload) {
             }
             else { //bad query
                 siteVarFree(variables);
+                newResultError("offloadToVariables: offload formatted incorrectly");
                 return NULL;
             }
         }
@@ -476,11 +491,13 @@ siteVar* offloadToVariables(char* offload) {
                         default: {
                             printf("offload to variables error\n");
                             siteVarFree(variables);
+                            newResultError("offloadToVariables: variable is invalid");
                             return NULL;
                         }
                     }
 
-                    siteVarCompositeInsertNew(&variables, key, type, 1, data);
+                    bool status = siteVarCompositeInsertNew(&variables, key, type, 1, data);
+                    if (!status) newResultError("offloadToVariables: could not insert into variables");
                     if (strData) free(strData);
                     free(data);
                 }
@@ -489,8 +506,8 @@ siteVar* offloadToVariables(char* offload) {
                     //what else could it be?
                     //it could be an array, so we'll take that into account.
                     if (BC_isArray(value)) {
-                        siteVar* array = BC_ArrayToSiteVar(key, value, NULL);
-                        if (array) {
+                        siteVar* array = NULL;
+                        if (BC_ArrayToSiteVar(&array, key, value, NULL).status == COT_OK) {
                             siteVarCompositeInsert(&variables, array);
                         }
                     }
@@ -499,6 +516,7 @@ siteVar* offloadToVariables(char* offload) {
                         //since these are the base variables, we must return an error here
                         //or ignore the variable
                         siteVarFree(variables);
+                        newResultError("offloadToVariables: variable data is invalid");
                         return NULL;
                     }
 
@@ -515,6 +533,7 @@ siteVar* offloadToVariables(char* offload) {
             }
             else { //bad query
                 siteVarFree(variables);
+                newResultError("offloadToVariables: offload formatted incorrectly");
                 return NULL;
             }
         }
@@ -576,12 +595,14 @@ siteVar* offloadToVariables(char* offload) {
                 default: {
                     printf("offload to variables error\n");
                     siteVarFree(variables);
+                    newResultError("offloadToVariables: variable is invalid");
                     return NULL;
                 }
             }
             printf("hi\n");
             //printf("data was %s\n", *(char**)data);
             bool status = siteVarCompositeInsertNew(&variables, key, type, 1, data);
+            if (!status) newResultError("offloadToVariables: could not insert into variables");
             printf("offload to variables no\n");
             if (strData) free(strData);
             free(data);
@@ -591,21 +612,20 @@ siteVar* offloadToVariables(char* offload) {
             //what else could it be?
             //it could be an array, so we'll take that into account.
             if (BC_isArray(value)) {
-                siteVar* array = BC_ArrayToSiteVar(key, value, NULL);
-                if (array) {
-                    printf("offload to variables, its an array\n");
+                siteVar* array = NULL;
+                if (BC_ArrayToSiteVar(&array, key, value, NULL).status == COT_OK) {
                     siteVarCompositeInsert(&variables, array);
                 }
-                else printf("offload to variables, not a valid array");
             }
             else {
                 //otherwise, its a variable name.
                 //since these are the base variables, we must return an error here
                 //or ignore the variable
-                printf("yikes\n");
                 siteVarFree(variables);
+                newResultError("offloadToVariables: variable data is invalid");
                 return NULL;
             }
+
 
             //alternatively, we can interprete this as a string,
             //but feels kind of weird
@@ -620,6 +640,7 @@ siteVar* offloadToVariables(char* offload) {
     }
     else { //bad query
         siteVarFree(variables);
+        newResultError("offloadToVariables: offload formatted incorrectly");
         return NULL;
     }
 
@@ -656,6 +677,8 @@ bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char
     siteVarFree(offloadVars);
     if (offloadDecode) free(offloadDecode);
     if (offloadClean) free(offloadClean);
+
+    if (!state) newResultError("defaultGet: could not send file");
     
     return state;
 }

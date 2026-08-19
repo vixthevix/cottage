@@ -658,28 +658,38 @@ size_t INTERNAL_siteVarTypeSize(VARTYPE type) {
     return size;
 }
 
-void* siteVarAccessAt(siteVar* target, size_t index) {
+void* siteVarAccessRange(siteVar* target, size_t pointer, size_t stride) {
     cottageCheck(NULL);
     if (!target || target->type == COMPOSITE) return NULL;
-    if (index >= target->arrayLen) return NULL;
+    if (pointer + stride > target->arrayItemCount) return NULL;
+    printf("sitevaraccessrange start\n");
 
-    //void* data;
     size_t size = INTERNAL_siteVarTypeSize(target->type);
 
-    //returns a pointer to that item, since dynamically allocated can be accessed normally.
-    //uses pointer arithmetic
+    void* data = malloc(size * stride);
+    void* address = (target->data + (size * pointer));
 
-    void* data = malloc(size);
-    void* address = (target->data + (size * index));
-
-    // if (target->type == STRING) {
-
-
-    // }
-
-    memcpy(data, (target->data + (size * index)), size);
-
+    if (target->type == STRING) {
+        printf("sitevaraccessrange start string\n");
+        string_cot* stringData = (string_cot*)data;
+        string_cot* targetData = (string_cot*)target->data;
+        for (size_t i = 0, j = pointer; i < stride; i++, j++) {
+            string_cot string = targetData[j];
+            printf("sitevaraccessrange string:%s\n", string);
+            stringData[i] = calloc(strlen(string) + 1, sizeof(char));
+            strcpy(stringData[i], string);
+        }
+        printf("sitevaraccessrange end string\n");
+    }
+    else {
+        memcpy(data, address, stride * size);
+    }
     return data;
+}
+
+void* siteVarAccessAt(siteVar* target, size_t index) {
+    cottageCheck(NULL);
+    return siteVarAccessRange(target, index, 1);
 }
 
 void* siteVarAccess(siteVar* target) {

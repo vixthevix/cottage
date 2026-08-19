@@ -223,7 +223,7 @@ goals to complete before then:
             reference to sitevar iterator (i)
                 this requires new sitevar functions for inserting and retreiving
                 references within composites.
-            void* that is either directly a list of types (INT, UINT, STRING) etc.
+            void* that is either directly a list of types (INT, UINT, STRING etc.)
             or a sitevar composite.
             bool that tells if void* above is a composite
             data read index to return to once ENDFOR reached.
@@ -231,14 +231,15 @@ goals to complete before then:
         may need rewrite of reallocation process for data, using a load calculator and such
         turn it into a vector yk
 
-    
+    FORLOOPS done, without composites for now. i cba
 
     
-    develop a better way of differentiating ints, uints and floats
+    develop a better way of differentiating ints, uints and floats within arrays
 
-    improve boolcalc with wider range of sitevars now
+    improve boolcalc with wider range of sitevars now (done)
 
-    HTML FOREACH loops
+    HTML FOREACH loops (done)
+
     better openHTML error handling:
         remove most goto failure
 
@@ -246,6 +247,24 @@ goals to complete before then:
             char* with error message
             enum with error type (-1 error, 0 false, 1 true)
             automatically print errors to stderror
+
+            functions that need to use the error struct:
+                BC_evaluate (done)
+                BC_siteVarToNumber (rewrite function definition as well) (done)
+                BC_StrToVariable (done)
+                BC_VariableToString (maybe not?) (done)
+                BC_ArrayToSiteVar (done)
+                sendNormal (done)
+                openHTML (done)
+                splitHttpRequest (done)
+                handleRequest (done)
+                offloadToVariables (done)
+                defaultGet (maybe) (nah)
+                all the server functions in tcpsetup
+
+            alternatively, we can inject these error messages into functions,
+            such that they are printed to stderr but are not returned.
+            ive done this already, we shall see
 
         implement error struct with
         a try-catch system (try doing try, otherwise display in catch)
@@ -264,3 +283,8 @@ goals to complete before then:
     make better error checking/handling
     make code safer and more readable (primarily the mode gotos in openHTML)
     add function prototypes to the beginning of files, and lock the definitions behind COTTAGE_START.
+
+
+
+need to add this somewhere
+love exposure: 49:54

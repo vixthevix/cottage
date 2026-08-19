@@ -4,9 +4,9 @@
 #include "conversion_cot.h"
 #include "dependencies_cot.h"
 #include "boolcalc_cot.h"
+#include "error_cot.h"
 #include "sitevar_cot.h"
 #include "init_cot.h"
-
 
 bool sendNormal(char* filepath, char* type, int client) {
     cottageCheck(false);
@@ -21,7 +21,10 @@ bool sendNormal(char* filepath, char* type, int client) {
 
     //read the binary first
     FILE* file = fopen(filepath, "rb");
-    if (!file) return false;
+    if (!file) {
+        newResultError("sendNormal: filepath not found");
+        return false;
+    }
 
     //get the size
     fseek(file, 0, SEEK_END);
@@ -31,6 +34,7 @@ bool sendNormal(char* filepath, char* type, int client) {
     //read into buffer, then send
     char* buffer = (char*) calloc(size, sizeof(char));
     if (!buffer) {
+        newResultError("sendNormal: buffer for file unable to be made");
         fclose(file);
         return false;
     }
@@ -97,11 +101,12 @@ typedef struct loopState {
 //recursive function for opening a file
 //need it to open a file within a file
 //just copy paste stuff over
-char* openHTML(const char* filepath, siteVar* variables) {
-    cottageCheck(NULL);
+
+cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
+    //cottageCheck(NULL);
     //first, prepare the html
     FILE* file = fopen(filepath, "r");
-    if (!file) return NULL;
+    if (!file) return newResultError("openHTML: filepath not found");
 
     //get the size of the file and fread it into a buffer
 
@@ -389,6 +394,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                     //otherwise, update the iterator, and set di to where we need to be
                     printf("ENDFOR CONTINUE REACHED\n");
                     size_t varSize = INTERNAL_siteVarTypeSize(loopStates[curLoopState].listType);
+                    printf("varSize is %u\n", varSize);
                     void* value = &loopStates[curLoopState].list[loopStates[curLoopState].cur * varSize];
                     siteVarUpdate(loopStates[curLoopState].iterator, value);
                     fi = loopStates[curLoopState].returnIndex;
@@ -430,10 +436,12 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 if (!variables) goto failure;
                 //printf("offload is %s\n", offload);
                 //char* value = qmapGet(variables, offload);
-                siteVar* var = BC_StrToVariable(offload, variables, variables);
+                siteVar* var = NULL;
+                cotResult varResult = BC_StrToVariable(&var, offload, variables, variables);
                 
-                if (!var){
+                if (varResult.status == COT_ERROR){
                     printf("VAR: StrToVariable Fail\n");
+                    newResultError("openHTML: VAR could not convert string into siteVar");
                     goto failure;
                 } 
                 printf("WOOO\n");
@@ -451,6 +459,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 }
                 else {
                     //printf("no value found\n");
+                    newResultError("openHTML: VAR, could not extract value from var");
                     goto failure;
                 }
                 mode = -1;
@@ -561,26 +570,34 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
                             else if (BC_isArray(curValue)) { //NEXT TASK
                                 printf("ITS AN ARRAY\n");
-                                siteVar* storage = BC_ArrayToSiteVar(curVar, curValue, variables);
+                                siteVar* storage = NULL;
+                                cotResult storageResult = BC_ArrayToSiteVar(&storage, curVar, curValue, variables);
                                 //now we have storage, first check if its null
                                 //then put it into our thing
-                                if (storage) {
+                                if (storageResult.status == COT_OK) {
                                     siteVarCompositeInsert(&newVariables, storage);
                                     siteVarFree(storage);
+                                }
+                                else {
+                                    newResultError("openHTML: INSERT, conversion into array is invalid");
+                                    goto failure;
                                 }
                             }
 
                             else { //must be variable
                                 //char* x = qmapGet(variables, curValue);
                                 //siteVar* x = siteVarCompositeAccess(variables, curValue);
-                                siteVar* x = BC_StrToVariable(curValue, variables, variables);
-                                if (x) {
+                                siteVar* x = NULL;
+                                cotResult xResult = BC_StrToVariable(&x, curValue, variables, variables);
+                                
+                                if (xResult.status == COT_OK) {
                                     //qmapInsert(newVariables, curVar, x);
                                     siteVarCompositeInsert(&newVariables, x);
                                     siteVarFree(x);
                                 }
                                 else {
                                     //do nothing, because nothing can be done
+                                    newResultError("openHTML: INSERT, a parameter value is invalid");
                                 }
                             }
                         }
@@ -638,11 +655,11 @@ char* openHTML(const char* filepath, siteVar* variables) {
                         }
                         else if (BC_isArray(curValue)) { //NEXT TASK
                             printf("ITS AN ARRAY\n");
-                            siteVar* storage = BC_ArrayToSiteVar(curVar, curValue, variables);
-                            printf("storage made\n");
+                            siteVar* storage = NULL;
+                            cotResult storageResult = BC_ArrayToSiteVar(&storage, curVar, curValue, variables);                            printf("storage made\n");
                             //now we have storage, first check if its null
                             //then put it into our thing
-                            if (storage) {
+                            if (storageResult.status == COT_OK) {
                                 printf("storage valid\n");
                                 //iterate over storage strings just in case
                                 string_cot* strings = (string_cot*)storage->data;
@@ -653,28 +670,40 @@ char* openHTML(const char* filepath, siteVar* variables) {
                                 siteVarFree(storage);
                                 printf("storage inserted\n");
                             }
+                            else {
+                                newResultError("openHTML: INSERT, conversion into array is invalid");
+                                goto failure;
+                            }
                         }
                         else { //must be variable
                             //char* x = qmapGet(variables, curValue);
                             //siteVar* x = siteVarCompositeAccess(variables, curValue);
-                            siteVar* x = BC_StrToVariable(curValue, variables, variables);
-                            if (x) {
+                            siteVar* x = NULL;
+                            cotResult xResult = BC_StrToVariable(&x, curValue, variables, variables);
+                            
+                            if (xResult.status == COT_OK) {
                                 //qmapInsert(newVariables, curVar, x);
                                 siteVarCompositeInsert(&newVariables, x);
                                 siteVarFree(x);
                             }
                             else {
                                 //do nothing, because nothing can be done
+                                newResultError("openHTML: INSERT, a parameter value is invalid");
                             }
                         }
                     }
                 }
 
                 readINPUT:
-                char* dataINPUT = openHTML(link, newVariables);
+                char* dataINPUT = NULL;
+                cotResult dataINPUTResult = openHTML(&dataINPUT, link, newVariables);
                 printf("mode1: dataINPUT read\n");
                 free(link);
                 printf("mode1: link freed\n");
+                if (dataINPUTResult.status == COT_ERROR) {
+                    newResultError("openHTML: INSERT, failed to read input file");
+                    goto failure;
+                }
 
                 //reset newVariables
                 if (newVariables) {
@@ -689,7 +718,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                         }
                     }
                     printf("done\n");
-                    if (newVariables) siteVarFree(newVariables);
+                    siteVarFree(newVariables);
                     newVariables = NULL;
                 }
                 printf("mode1: newVariables freed\n");
@@ -709,6 +738,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 }
                 else {
                     printf("input data not got\n");
+                    newResultError("openHTML: INSERT, dataINPUT empty for some reason");
                     goto failure;
                 } 
                 free(dataINPUT);
@@ -730,7 +760,12 @@ char* openHTML(const char* filepath, siteVar* variables) {
                 if (offload) {
                     char* formatted = BC_format(offload);
                     char* transformed = BC_transform(formatted);
-                    bool result = BC_evaluate(transformed, variables);
+                    bool result = 0;
+                    cotResult resultResult = BC_evaluate(&result, transformed, variables);
+                    if (resultResult.status == COT_ERROR) {
+                        newResultError("openHTML: IF, error with expression evaluation");
+                        goto failure;
+                    }
                     printf("formatted is %s, transformed is %s, result is %i\n", formatted, transformed, result);
                     
                     
@@ -752,8 +787,8 @@ char* openHTML(const char* filepath, siteVar* variables) {
                     // }
                     // ifStates[ifCount] = ifValid;
 
-                    free(formatted);
-                    free(transformed);
+                    if (formatted) free(formatted);
+                    if (transformed) free(transformed);
                 }
                 mode = -1;
                 memset(command, 0, commandSize * sizeof(char));
@@ -845,7 +880,78 @@ char* openHTML(const char* filepath, siteVar* variables) {
 
 
                     }
-                    else goto failure;
+                    /*
+                    if its not a range, it can be either an array, or a variable.
+                    */
+                    else if (BC_isArray(iteratorTarget)) {
+                        //we transform the array into a sitevar
+                        //maybe we dont need to? its a lot of unneccesray work
+                        //to use only some of the code already written in
+                        //array to site var. in the future, split it into separate
+                        //extraction functions.
+                        siteVar* forArrayContainer = NULL;
+                        cotResult forArrayContainerResult = BC_ArrayToSiteVar(&forArrayContainer, "a", iteratorTarget, variables);
+                        
+                        if (forArrayContainerResult.status == COT_ERROR) {
+                            newResultError("openHTML: FOR, could not convert array to siteVar");
+                            goto failure;
+                        } 
+                        VARTYPE type = forArrayContainer->type;
+                        size_t size = INTERNAL_siteVarTypeSize(type);
+                        void* forArray = siteVarAccessRange(forArrayContainer, 0, forArrayContainer->arrayItemCount);
+
+                        loopStates[curLoopState].count = forArrayContainer->arrayItemCount;
+                        loopStates[curLoopState].cur = 0;
+                        loopStates[curLoopState].list = forArray;
+                        loopStates[curLoopState].listComposite = false;
+                        loopStates[curLoopState].listType = type;
+                        loopStates[curLoopState].returnIndex = fi + 2;
+
+                        siteVar* iterator = siteVarInit(iteratorName, type, 1, &forArray[0]);
+                        loopStates[curLoopState].iterator = iterator;
+                        siteVarCompositeInsertReference(&variables, iterator);
+                        siteVarFree(forArrayContainer);
+                    }
+                    else {
+                        //it is a variable.
+                        //with variables, we must ensure that they are either
+                        //arrays or composites.
+                        siteVar* var = NULL;
+                        cotResult varResult = BC_StrToVariable(&var, iteratorTarget, variables, variables);
+                        if (varResult.status == COT_ERROR) {
+                            newResultError("openHTML: FOR, could not convert string into siteVar");
+                            goto failure;
+                        }
+                        if (var->type == COMPOSITE) {
+                            //with a composite, it does work differently.
+                            //better to treat it as an array of sitevars,
+                            //and have the iterator extract the first value there.
+                            //but this will be something extra, not right now.
+                            newResultError("openHTML: FOR, cannot access COMPOSITE siteVar (for now)");
+                            goto failure;
+                        }
+                        else if (var->isArray) {
+                            VARTYPE type = var->type;
+                            size_t size = INTERNAL_siteVarTypeSize(type);
+                            void* forArray = siteVarAccessRange(var, 0, var->arrayItemCount);
+
+                            loopStates[curLoopState].count = var->arrayItemCount;
+                            loopStates[curLoopState].cur = 0;
+                            loopStates[curLoopState].list = forArray;
+                            loopStates[curLoopState].listComposite = false;
+                            loopStates[curLoopState].listType = type;
+                            loopStates[curLoopState].returnIndex = fi + 2;
+
+                            siteVar* iterator = siteVarInit(iteratorName, type, 1, &forArray[0]);
+                            loopStates[curLoopState].iterator = iterator;
+                            siteVarCompositeInsertReference(&variables, iterator);
+                        }
+                        else {
+                            newResultError("openHTML: FOR, target of loop is not an array");
+                            goto failure;
+                        }
+                    }
+                    //else goto failure;
 
                 }
                 mode = -1;
@@ -915,6 +1021,7 @@ char* openHTML(const char* filepath, siteVar* variables) {
     if (curCondState != 0 || curLoopState != -1) {
         //failure
         printf("failed due to conditional/loop state invalid\n");
+        newResultError("openHTML: conditional/loop state invalid");
         free(data.data);
         data.data = NULL;
     }
@@ -925,10 +1032,11 @@ char* openHTML(const char* filepath, siteVar* variables) {
         data.data[data.index] = 0;
         printf("data null terminated\n");
         printf("full data:\n\n%s\n\n", data.data);
-        return data.data;
+        *input = data.data;
+        return newResultOK();
     }
     else {
-        return NULL;
+        return newResultError("openHTML: failed to openHTML");
     }
 }
 
@@ -937,8 +1045,10 @@ char* openHTML(const char* filepath, siteVar* variables) {
 bool sendHTML(const char* filepath, int client, siteVar* variables) {
     cottageCheck(false);
     //first, prepare the html
-
-    char* data = openHTML(filepath, variables);
+    char* data = NULL;
+    if (openHTML(&data, filepath, variables).status == COT_ERROR) {
+        return false;
+    }
     printf("openHTML success\n");
     printf("full data:\n\n%s\n\n", data);
 
