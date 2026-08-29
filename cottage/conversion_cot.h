@@ -191,6 +191,7 @@ bool BC_isChar(char* exp) {
 
 char BC_StrToChar(char* exp) {
 	cottageCheck(0);
+	if (!exp || strlen(exp) != 3) return 0;
 	return exp[1];
 }
 
@@ -216,11 +217,13 @@ char* BC_StrToStr(char* exp) {
 
 bool BC_isBool(char* exp) {
 	cottageCheck(false);
+	if (!exp) return false;
 	return (!strcmp(exp, "true") || !strcmp(exp, "false"));
 }
 
 bool BC_StrToBool(char* exp) {
 	cottageCheck(false);
+	if (!exp) return false;
 	if (!strcmp(exp, "true")) return true;
 	else if (!strcmp(exp, "false")) return false;
 
@@ -376,6 +379,9 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 			siteVar* returnVal = NULL;
 			cotResult returnValResult = BC_StrToVariable(&returnVal, remainder, compositeVars, originalVariables);
 			if (returnValResult.status == COT_ERROR) {
+				siteVarFree(compositeVars);
+				if (remainder) free(remainder);
+				if (var) free(var);
 				return newResultError("BC_StrToVariable: could not process '.'");
 			}
 
@@ -385,6 +391,8 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 			siteVarFree(compositeVars);
 			free(remainder);
 			free(var);
+
+			*input = returnVal;
 
 			// if (returnVal->type == STRING) {
 			// 	printf("string found\n");
@@ -400,7 +408,7 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 			int16_t bracketCount = 0;
 			i++;
 			size_t j = 0;
-			while (bracketCount >= 0) {
+			while (bracketCount >= 0 && i < strlen(exp)) {
 				if (exp[i] == '[') {
 					bracketCount++;
 				}
@@ -475,6 +483,7 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 				}
 				
 				if ((indexVar->type == STRING || indexVar->type == BOOL)) {
+					siteVarFree(indexVar);
 					siteVarFree(x);
 					free(var);
 					free(bracketVar);
@@ -560,7 +569,7 @@ char* BC_IntToStr(int_cot target) {
     //to get the number of digits, use log base 10, truncate it, then add 1
     size_t digitCount = ((size_t)log10(target)) + 1;
     char* buffer = (char*) calloc(digitCount + 1 + 1 , sizeof(char));
-    sprintf(buffer, "%s%li", isNegative ? "-":"", target);
+    if (buffer) sprintf(buffer, "%s%li", isNegative ? "-":"", target);
     return buffer;
 }
 
@@ -574,8 +583,7 @@ char* BC_UIntToStr(uint_cot target) {
     //to get the number of digits, use log base 10, truncate it, then add 1
     size_t digitCount = ((size_t)log10(target)) + 1;
     char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
-    char* ptr = buffer;
-    ptr += sprintf(ptr, "%lu", target);
+    if (buffer) sprintf(buffer, "%lu", target);
 
     return buffer;
 }
@@ -586,8 +594,7 @@ char* BC_FloatToStr(float_cot target) {
     //to get the number of digits, use log base 10, truncate it, then add 1
     size_t digitCount = snprintf(NULL, 0, "%lf", target);
     char* buffer = (char*) calloc(digitCount + 1, sizeof(char));
-    char* ptr = buffer;
-    ptr += snprintf(ptr, digitCount + 1, "%lf", target);
+    if (buffer) snprintf(buffer, digitCount + 1, "%lf", target);
 
     return buffer;
 }
@@ -595,8 +602,7 @@ char* BC_FloatToStr(float_cot target) {
 char* BC_BoolToStr(bool_cot target) {
 	cottageCheck(NULL);
     char* buffer = (char*) calloc(5 + 1, sizeof(char)); //false has 5 characters
-    char* ptr = buffer;
-    ptr += sprintf(ptr, "%s", target ? "true" : "false");
+	if (buffer) sprintf(buffer, "%s", target ? "true" : "false");
 
     return buffer;
 }
@@ -685,200 +691,104 @@ cotResult BC_ArrayToSiteVar(siteVar** input, char* name, char* exp, siteVar* var
 	//make a void* container
 
 	size_t i = 1; //starting from not the bracket
-
-	while (i < strlen(exp) - 1) {
+	size_t explen = strlen(exp);
+	
+	while (i < explen) {
 		size_t k = 0;
-		while (exp[i] != ',' && i < strlen(exp) - 1) { //read until next variable
-			arrayVar[k++] = exp[i++];
+		while (exp[i] != ',' && exp[i] != ']' && i < explen) {
+			if (k < 511) { //buffer overflow stop
+				arrayVar[k++] = exp[i];
+			}
+			i++;
 		}
-		if (i >= strlen(exp) - 1) { //reached the end
-			continue; //end early
-		}
-		i++; //to skip the comma
+		i++; //skip bracket or comma
 
-		printf("arraytositevar: arrayVar is %s\n", arrayVar);
+		if (k == 0) continue; //skips empty elements
 
 		VARTYPE type = BC_StrToType(arrayVar);
-		printf("arraytositevar: type is %i\n", type);
-		if (!typeFound) {
-			arrayType = type;
-			typeFound = true;
-			if (arrayType == ERROR) { //must be a variable, we dont set the type yet
+		void* data = NULL;
+		siteVar* foundVar = NULL; //in case element is a variable
 
-			}
-			else {
-				printf("doing this now\n");
-				storage = siteVarInit(name, arrayType, 0, NULL); //2 to make it an array
-				storage->isArray = true;
-				printf("this has been done\n");
-			}
-		}
-		else {
-			if (type != arrayType) {
-				siteVarFree(storage);
-				return newResultError("BC_ArrayToSiteVar: values in array are not of a consistent type");
-			}
-		}
-		//void* storage = NULL;
 		switch (type) {
 			case INT: {
 				int_cot arrayVal = BC_StrToInt(arrayVar);
-				siteVarInsert(&storage, &arrayVal);
+				data = malloc(sizeof(int_cot));
+				memcpy(data, &arrayVal, sizeof(int_cot));
 				break;
 			}
 			case UINT: {
 				uint_cot arrayVal = BC_StrToUInt(arrayVar);
-				siteVarInsert(&storage, &arrayVal);
+				data = malloc(sizeof(uint_cot));
+				memcpy(data, &arrayVal, sizeof(uint_cot));
 				break;
 			}
 			case FLOAT: {
 				float_cot arrayVal = BC_StrToFloat(arrayVar);
-				siteVarInsert(&storage, &arrayVal);
+				data = malloc(sizeof(float_cot));
+				memcpy(data, &arrayVal, sizeof(float_cot));
 				break;
 			}
 			case BOOL: {
 				bool_cot arrayVal = BC_StrToBool(arrayVar);
-				siteVarInsert(&storage, &arrayVal);
+				data = malloc(sizeof(bool_cot));
+				memcpy(data, &arrayVal, sizeof(bool_cot));
 				break;
 			}
 			case STRING: {
-				printf("arraytositevar: its a string\n");
 				string_cot arrayVal = BC_StrToStr(arrayVar);
-				printf("arrayVal is %s\n", arrayVal);
-				siteVarInsert(&storage, &arrayVal);
-				free(arrayVal);
+				data = malloc(sizeof(string_cot));
+				memcpy(data, &arrayVal, sizeof(string_cot));
 				break;
 			}
-			default: { //its a variable
-				siteVar* arrayVal = NULL;
-				cotResult arrayValResult = BC_StrToVariable(&arrayVal, arrayVar, variables, variables);
-				if (arrayValResult.status == COT_ERROR) {
-					//siteVarFree(arrayVal);
+			default: {
+				if (BC_StrToVariable(&foundVar, arrayVar, variables, variables).status == COT_ERROR) {
 					siteVarFree(storage);
 					return newResultError("BC_ArrayToSiteVar: variable in array could not be accessed");
 				}
-				//if this is a composite, we must throw failure
-				//because it assumes we have an array of composites
-				//which is not allowed
-				if (arrayVal->type == COMPOSITE) {
+				if (foundVar->type == COMPOSITE) {
 					siteVarFree(storage);
+					siteVarFree(foundVar);
 					return newResultError("BC_ArrayToSiteVar: variable in array is a COMPOSITE, not allowed");
 				}
-
-				//initialise storage here if not done yet
-				if (!typeFound) {
-					typeFound = true;
-					arrayType = arrayVal->type;
-					storage = siteVarInit(name, arrayType, 2, NULL);
-				}
-
-				//can only be one element
-				void* arrayVal_Value = siteVarAccess(arrayVal);
-				if (!arrayVal_Value) {
-					siteVarFree(arrayVal);
+				type = foundVar->type;
+				data = siteVarAccess(foundVar);
+				if (!data) {
+					siteVarFree(foundVar);
 					siteVarFree(storage);
 					return newResultError("BC_ArrayToSiteVar: could not access data in variable in array");
 				}
-				siteVarInsert(&storage, arrayVal_Value);
-				free(arrayVal_Value);
-				siteVarFree(arrayVal);
-
+				break;
 			}
 		}
 
-		//reset arrayVar
-		memset(arrayVar, 0, strlen(arrayVar));
-	}
-
-	printf("arraytositevar: arrayVar is %s\n", arrayVar);
-
-	VARTYPE type = BC_StrToType(arrayVar);
-	printf("arraytositevar: type is %i\n", type);
-	if (!typeFound) {
-		arrayType = type;
-		typeFound = true;
-		if (arrayType == ERROR) { //must be a variable, we dont set the type yet
-
-		}
-		else {
-			printf("doing this now\n");
-			storage = siteVarInit(name, arrayType, 0, NULL); //2 to make it an array
+		if (!typeFound) {
+			arrayType = type;
+			typeFound = true;
+			storage = siteVarInit(name, arrayType, 0, NULL);
 			storage->isArray = true;
-			printf("this has been done\n");
 		}
-	}
-	else {
-		if (type != arrayType) {
+		else if (type != arrayType) {
+			if (type == STRING && data) {
+				string_cot* strData = (string_cot*)data;
+				if (*strData) free(*strData);
+			}
+			if (data) free(data);
+			siteVarFree(foundVar);
 			siteVarFree(storage);
 			return newResultError("BC_ArrayToSiteVar: values in array are not of a consistent type");
 		}
+
+		siteVarInsert(&storage, data);
+		if (type == STRING && data) {
+			string_cot* strData = (string_cot*)data;
+			if (*strData) free(*strData);
+		}
+		if (data) free(data);
+		siteVarFree(foundVar);
+		memset(arrayVar, 0, 512);
 	}
-	//void* storage = NULL;
-	switch (type) {
-		case INT: {
-			int_cot arrayVal = BC_StrToInt(arrayVar);
-			siteVarInsert(&storage, &arrayVal);
-			break;
-		}
-		case UINT: {
-			uint_cot arrayVal = BC_StrToUInt(arrayVar);
-			siteVarInsert(&storage, &arrayVal);
-			break;
-		}
-		case FLOAT: {
-			float_cot arrayVal = BC_StrToFloat(arrayVar);
-			siteVarInsert(&storage, &arrayVal);
-			break;
-		}
-		case BOOL: {
-			bool_cot arrayVal = BC_StrToBool(arrayVar);
-			siteVarInsert(&storage, &arrayVal);
-			break;
-		}
-		case STRING: {
-			printf("arraytositevar: its a string\n");
-			string_cot arrayVal = BC_StrToStr(arrayVar);
-			printf("arrayVal is %s\n", arrayVal);
-			siteVarInsert(&storage, &arrayVal);
-			free(arrayVal);
-			break;
-		}
-		default: { //its a variable
-			siteVar* arrayVal = NULL;
-			cotResult arrayValResult = BC_StrToVariable(&arrayVal, arrayVar, variables, variables);
-			if (arrayValResult.status == COT_ERROR) {
-				//siteVarFree(arrayVal);
-				siteVarFree(storage);
-				return newResultError("BC_ArrayToSiteVar: variable in array could not be accessed");
-			}
-			//if this is a composite, we must throw failure
-			//because it assumes we have an array of composites
-			//which is not allowed
-			if (arrayVal->type == COMPOSITE) {
-				siteVarFree(storage);
-				return newResultError("BC_ArrayToSiteVar: variable in array is a COMPOSITE, not allowed");
-			}
 
-			//initialise storage here if not done yet
-			if (!typeFound) {
-				typeFound = true;
-				arrayType = arrayVal->type;
-				storage = siteVarInit(name, arrayType, 2, NULL);
-			}
-
-			//can only be one element
-			void* arrayVal_Value = siteVarAccess(arrayVal);
-			if (!arrayVal_Value) {
-				siteVarFree(arrayVal);
-				siteVarFree(storage);
-				return newResultError("BC_ArrayToSiteVar: could not access data in variable in array");
-			}
-			siteVarInsert(&storage, arrayVal_Value);
-			free(arrayVal_Value);
-			siteVarFree(arrayVal);
-
-		}
-	}	
+	if (!storage) return newResultError("BC_ArrayToSiteVar: array was empty");
 
 	*input = storage;
 	return newResultOK();

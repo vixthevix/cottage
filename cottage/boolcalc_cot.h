@@ -221,6 +221,8 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 	//int stack[100] = {0};
 	int sp = -1;
 
+	char errorMsg[256] = {0};
+
 	int n = strlen(expression);
 	for (int i = 0; i < n; i++) {
 		char c = expression[i];
@@ -281,13 +283,14 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
             else { //must be a variable
 				
 				if (BC_StrToVariable(&varVal, value, variables, variables).status == COT_ERROR) {
-					return newResultError("BC_evaluate: invalid element in expression"); //if variable is not defined, terminate
+					strcpy(errorMsg, "BC_evaluate: invalid element in expression");
+					goto failure;
 				}
 				//if (!varVal) return newResultError("BC_evaluate: invalid element in expression"); //if variable is not defined, terminate
 
-				if (varVal->type == STRING) {
-					printf("%s is a string, with value %s\n", varVal->name, *((char**)siteVarAccess(varVal)));
-				}
+				// if (varVal->type == STRING) {
+				// 	printf("%s is a string, with value %s\n", varVal->name, *((char**)siteVarAccess(varVal)));
+				// }
 				// //cannot operate on composites
 				// if (varVal->type == COMPOSITE) {
 				// 	return false;
@@ -354,7 +357,10 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 		}
 		else if (BC_isOperator(c)) {
 			//must have at least two numbers in here
-			if (sp < 1) return newResultError("BC_evaluate: stack pointer underflow");;
+			if (sp < 1) {
+				strcpy(errorMsg, "BC_evaluate: stack pointer underflow");
+				goto failure;
+			}
 
 
 			//now comes the tricky part.
@@ -453,7 +459,13 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 					case '^': {
 						break;
 					}
-					default: return newResultError("BC_evaluate: invalid operator found");
+					default: {
+						strcpy(errorMsg, "BC_evaluate: invalid operator found");
+						if (aVal) free(aVal); 
+						if (bVal) free(bVal);
+						siteVarFree(a); siteVarFree(b);
+						goto failure;
+					}
 				}
 			}
 			else {
@@ -487,7 +499,11 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 				
 				generalNumber aNum = 0, bNum = 0;
 				if (BC_siteVarToNumber(&aNum, a->type, aVal).status == COT_ERROR || BC_siteVarToNumber(&bNum, b->type, bVal).status == COT_ERROR) {
-					return newResultError("BC_evaluate: a number was invalid");
+					strcpy(errorMsg, "BC_evaluate: a number was invalid");
+					if (aVal) free(aVal); 
+					if (bVal) free(bVal);
+					siteVarFree(a); siteVarFree(b);
+					goto failure;
 				}
 				//BC_siteVarToNumber(b->type, bVal);
 
@@ -502,47 +518,45 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 					case '|': curResult = (aNum || bNum); break;
 					case '=': curResult = (aNum == bNum); break; // Note: careful with strict float equality
 					case '^': curResult = (aNum != bNum); break;
-					default:  return newResultError("BC_evaluate: invalid operator found");
+					default:  {
+						strcpy(errorMsg, "BC_evaluate: invalid operator found");
+						if (aVal) free(aVal); 
+						if (bVal) free(bVal);
+						siteVarFree(a); siteVarFree(b);
+						goto failure;
+					}
 				}
 				stack[++sp] = siteVarInit("", BOOL, 1, &((bool){curResult}));
 				//printf("error probably here\n");
-				siteVarFree(a);
-				siteVarFree(b);
-				a = NULL;
-				b = NULL;
-				//printf("error probably not here\n");
-
 			}
-			free(aVal);
-			free(bVal);
-			//printf("error maybe here?\n");
+			if (aVal) free(aVal); 
+			if (bVal) free(bVal);
+			siteVarFree(a); siteVarFree(b);
+			a = NULL;
+			b = NULL;
+			//printf("error probably not here\n");
 		}
 	}
 
-	if (sp > 0) { //error
-		//free the whole stack
-		for (uint64_t i = 0; i < stackSize; i++) {
-			siteVarFree(stack[i]);
-		}
-		return newResultError("BC_evaluate: stack pointer not 0 at end of evaluation");
+	if (sp > 0) {
+		strcpy(errorMsg, "BC_evaluate: stack pointer not 0 at end of evaluation");
+		goto failure;
 	}
 	
 	bool* resultptr = (bool*)siteVarAccess(stack[0]);
 	*result = (*resultptr) && true;
 	free(resultptr);
 
+	failure:
 	//free the whole stack
 	for (uint64_t i = 0; i < stackSize; i++) {
 		siteVarFree(stack[i]);
 	}
 
+	if (errorMsg[0] != 0) return newResultError(errorMsg);
+	
 	return newResultOK();
 }
-
-/*
-We are going to put in the siteVar now,
-I believe we only have to do this in evaluate thankfully
-*/
 
 
 

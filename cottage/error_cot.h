@@ -45,7 +45,8 @@ cotResult newResult(ErrorStatus status, const char message[256]) {
         struct tm* timeinfo;
         time(&rawtime);
         timeinfo = localtime(&rawtime);
-        sprintf(x.message, "[%s] %s\n", asctime(timeinfo), message);
+        char* timeString = asctime(timeinfo); timeString[strlen(timeString) - 1] = 0;
+        sprintf(x.message, "[%s] %s\n", timeString, message);
         //for now, also print directly to stderr. maybe move this somewhere else?
         fprintf(stderr, x.message);
     }
