@@ -176,6 +176,12 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
     //layer 0 is the base state. here, everything is 0
     //we dont need to perform any checks or send any signals, since there
     //is only one entrance and exit for a for loop
+    const int 
+    modeNONE = -1,
+    modeVAR = 0,
+    modeINSERT = 1,
+    modeIF = 2,
+    modeFOR = 3;
 
     int mode = -1;
     const int
@@ -203,19 +209,25 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             //check the command
             printf("command is %s\n", command);
 
-            mode = -1;
+            mode = modeNONE;
             
             if (!strcmp(command, "IF")) {
                 curCondState++;
-                if (curCondState <= 0) goto failure;
-                if (curCondState >= 512) goto failure;
+                if (curCondState <= 0) {
+                    newResultError("openHTML: current conditional state is too low.");
+                    goto failure;
+                }
+                if (curCondState >= 512) {
+                    newResultError("openHTML: current conditional state is too high.");
+                    goto failure;
+                }
 
                 memset(&states[curCondState], 0, sizeof(conditionalState));
                 states[curCondState].ifAppeared = true;
 
                 if (states[curCondState - 1].valid) {
-                    mode = 2;
-                    goto mode2;   
+                    mode = modeIF;
+                    goto jumpIF;   
                 }
                 else {
                     //if the prev state is false, we have to skip everything.
@@ -236,7 +248,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 // //assuming that we are in a nested if
                 // if (ifValid) {
                 //     mode = 2;
-                //     goto mode2;
+                //     goto jumpIF;
                 // }
                 // finishedEmbedRead = true;
                 // oi = 0;
@@ -247,6 +259,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 printf("curState: valid:%s, ifAppeared:%s, elseAppeared:%s\n", states[curCondState].valid ? "true":"false", states[curCondState].ifAppeared ? "true":"false", states[curCondState].elseAppeared ? "true":"false");
                 
                 if (!states[curCondState].ifAppeared || states[curCondState].elseAppeared) {
+                    newResultError("openHTML: ELSE-IF in invalid spot.");
                     goto failure;
                 }
                 
@@ -255,8 +268,8 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
 
                 //are we in a valid prev state, and has there been a success signal from earlier?
                 if (states[curCondState - 1].valid && !states[curCondState].chainSuccess) {
-                    mode = 2;
-                    goto mode2;
+                    mode = modeIF;
+                    goto jumpIF;
                 }
                 //mode = -1;
                 finishedEmbedRead = true;
@@ -272,11 +285,11 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 //     // if (!ifValid) {
                 //     //     printf("else if happening\n");
                 //     //     mode = 2;
-                //     //     goto mode2;
+                //     //     goto jumpIF;
                 //     // }
                 //     printf("else if happening\n");
                 //     mode = 2;
-                //     goto mode2;
+                //     goto jumpIF;
                 // }
                 // else ifValid = false;
                 // finishedEmbedRead = true;
@@ -286,7 +299,10 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
             else if (!strcmp(command, "ELSE")) {
                 
-                if (!states[curCondState].ifAppeared || states[curCondState].elseAppeared) goto failure;
+                if (!states[curCondState].ifAppeared || states[curCondState].elseAppeared) {
+                    newResultError("openHTML: ELSE in invalid spot.");
+                    goto failure;
+                }
                 
                 states[curCondState].elseAppeared = true;
 
@@ -335,12 +351,18 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
             else if (!strcmp(command, "ENDIF")) {  
                 
-                if (!states[curCondState].ifAppeared) goto failure;
+                if (!states[curCondState].ifAppeared) {
+                    newResultError("openHTML: ENDIF appeared before IF.");
+                    goto failure;
+                }
 
                 curCondState--;
-                if (curCondState < 0) goto failure;
+                if (curCondState < 0) {
+                    newResultError("openHTML: current conditional state too low.");
+                    goto failure;
+                }
                 
-                mode = -1;
+                mode = modeNONE;
                 finishedEmbedRead = true;
                 oi = 0;
                 memset(command, 0, commandSize * sizeof(char));
@@ -367,18 +389,28 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
             
             // else if (!ifValid) mode = -1;
-            else if (!states[curCondState].valid) mode = -1;
+            else if (!states[curCondState].valid) mode = modeNONE;
 
             //FOR LOOP STUFF
             else if (!strcmp(command, "FOR")) {
                 curLoopState++;
-                if (curLoopState < 0) goto failure;
-                mode = 3;
-                goto mode3;
+                if (curLoopState < 0) {
+                    newResultError("openHTML: current loop state is too low.");
+                    goto failure;
+                }
+                if (curLoopState >= 512) {
+                    newResultError("openHTML: current loop state is too high.");
+                    goto failure;
+                }
+                mode = modeFOR;
+                goto jumpFOR;
             }
             else if (!strcmp(command, "ENDFOR")) {
                 printf("ENDFOR REACHED\n");
-                if (curLoopState <= -1) goto failure;
+                if (curLoopState <= -1) {
+                    newResultError("openHTML: ENDFOR appeared before FOR.");
+                    goto failure;
+                }
                 loopStates[curLoopState].cur++;
                 if (loopStates[curLoopState].cur == loopStates[curLoopState].count) {
                     printf("ENDFOR END REACHED\n");
@@ -388,7 +420,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                     siteVarCompositeDelete(&variables, loopStates[curLoopState].iterator->name);
                     loopStates[curLoopState].iterator = NULL;
                     curLoopState--;
-
                 }
                 else {
                     //otherwise, update the iterator, and set di to where we need to be
@@ -400,7 +431,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                     fi = loopStates[curLoopState].returnIndex;
                 }
                 
-                mode = -1;
+                mode = modeNONE;
                 finishedEmbedRead = true;
                 oi = 0;
                 memset(command, 0, commandSize * sizeof(char));
@@ -408,21 +439,22 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
             
             else if (!strcmp(command, "VAR")) {
-                mode = 0;
-                goto mode0;
+                mode = modeVAR;
+                goto jumpVAR;
             }
             else if (!strcmp(command, "INSERT")) {
-                mode = 1;
-                goto mode1;
+                mode = modeINSERT;
+                goto jumpINSERT;
             }
             //add more cases here
             else {
-                mode = -1;
+                mode = modeNONE;
+                newResultError("openHTML: invalid command found.");
                 goto failure;
             }
         }
-        else if (mode == 0) {
-            mode0:
+        else if (mode == modeVAR) {
+            jumpVAR:
             //read the variable
             if (c != '}') {
                 offload[oi++] = c;
@@ -433,20 +465,67 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 oi = 0;
                 //find in variables
                 //first check variables is initialised
-                if (!variables) goto failure;
+                // if (!variables) {
+                //     newResultError("openHTML: VAR, variables not initialised.");
+                //     goto failure;
+                // }
                 //printf("offload is %s\n", offload);
                 //char* value = qmapGet(variables, offload);
+
+                /*
+                FOR ERROR HANDLING:
+                we have something like
+                {{VAR:variable;"default error message"}}
+                ensure this error message is a string.
+                */
+                
+                char varName[512] = {0};
+                char varError[512] = {0};
+                int index = 0;
+                bool semicolonFound = false;
+                for (int i = 0; i < strlen(offload); i++) {
+                    if (offload[i] == ';') {
+                        semicolonFound = true;
+                        index = 0;
+                        continue;
+                    }
+                    if (!semicolonFound) {
+                        varName[index++] = offload[i];
+                    }
+                    else {
+                        varError[index++] = offload[i];
+                    }
+                }
+
+                if (strlen(varError) > 0 && !BC_isString(varError)) {
+                    newResultError("openHTML: VAR, error message is not valid string.");
+                    goto failure;
+                }
+                //remove quotations
+                BC_delAt(varError, 0);
+                BC_delAt(varError, strlen(varError) - 1);
+
                 siteVar* var = NULL;
-                cotResult varResult = BC_StrToVariable(&var, offload, variables, variables);
+                cotResult varResult = BC_StrToVariable(&var, varName, variables, variables);
                 
                 if (varResult.status == COT_ERROR){
-                    printf("VAR: StrToVariable Fail\n");
-                    newResultError("openHTML: VAR could not convert string into siteVar");
-                    goto failure;
+                    //point of failure
+                    if (strlen(varError) > 0) {
+                        for (int j = 0; j < strlen(varError); j++, di++) {
+                            //data[di] = value[j];
+                            dataVectorPush(&data, varError[j]);
+                        }
+                        goto VARdone;
+                    }
+                    else {
+                        newResultError("openHTML: VAR could not convert string into siteVar");
+                        goto failure;
+                    }
                 } 
                 printf("WOOO\n");
                 //we need to convert this value into a string
                 char* value = BC_VariableToString(var, 0);
+                if (var) siteVarFree(var);
                 printf("VAR VALUE: %s\n", value);
                 if (value) {
                     //write into data
@@ -455,20 +534,28 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                         dataVectorPush(&data, value[j]);
                     }
                     free(value);
-                    free(var);
                 }
                 else {
-                    //printf("no value found\n");
-                    newResultError("openHTML: VAR, could not extract value from var");
-                    goto failure;
+                    if (strlen(varError) > 0) {
+                        for (int j = 0; j < strlen(varError); j++, di++) {
+                            //data[di] = value[j];
+                            dataVectorPush(&data, varError[j]);
+                        }
+                        goto VARdone;
+                    }
+                    else {
+                        newResultError("openHTML: VAR, could not extract value from var");
+                        goto failure;
+                    }
                 }
+                VARdone:
                 mode = -1;
                 memset(command, 0, commandSize * sizeof(char));
                 memset(offload, 0, offloadSize * sizeof(char));
             }
         }
-        else if (mode == 1) {
-            mode1:
+        else if (mode == modeINSERT) {
+            jumpINSERT:
             //printf("yeah\n");
             //we need to read the filepath, and the variables.
             if (c != '}') {
@@ -697,9 +784,9 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 readINPUT:
                 char* dataINPUT = NULL;
                 cotResult dataINPUTResult = openHTML(&dataINPUT, link, newVariables);
-                printf("mode1: dataINPUT read\n");
+                printf("jumpINSERT: dataINPUT read\n");
                 free(link);
-                printf("mode1: link freed\n");
+                printf("jumpINSERT: link freed\n");
                 if (dataINPUTResult.status == COT_ERROR) {
                     newResultError("openHTML: INSERT, failed to read input file");
                     goto failure;
@@ -721,7 +808,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                     siteVarFree(newVariables);
                     newVariables = NULL;
                 }
-                printf("mode1: newVariables freed\n");
+                printf("jumpINSERT: newVariables freed\n");
                 //copy over the new data
                 if (dataINPUT) {
                     printf("input data got\n");
@@ -750,8 +837,8 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
 
         }
-        else if (mode == 2) {
-            mode2:
+        else if (mode == modeIF) {
+            jumpIF:
             if (c != '}') offload[oi++] = c;
             else {
                 finishedEmbedRead = true;
@@ -795,8 +882,8 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 memset(offload, 0, offloadSize * sizeof(char));
             }
         }
-        else if (mode == 3) {
-            mode3:
+        else if (mode == modeFOR) {
+            jumpFOR:
             if (c != '}') offload[oi++] = c;
             else {
                 finishedEmbedRead = true;

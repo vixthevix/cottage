@@ -443,7 +443,7 @@ void* INTERNAL_StrToData(string_cot value, VARTYPE type) {
             }
         }
 
-        if (strData) free(strData);
+        //if (strData) free(strData);
         return data;
     }
     else return NULL;
@@ -504,6 +504,10 @@ siteVar* offloadToVariables(char* offload) {
                 if (data) {
                     bool status = siteVarCompositeInsertNew(&variables, key, type, 1, data);
                     if (!status) newResultError("offloadToVariables: could not insert into variables");
+                    if (type == STRING) {
+                        string_cot* strData = (string_cot*)data;
+                        free(*strData);
+                    }
                     free(data);
                 }
                 else {
@@ -553,6 +557,10 @@ siteVar* offloadToVariables(char* offload) {
         if (data) {
             bool status = siteVarCompositeInsertNew(&variables, key, type, 1, data);
             if (!status) newResultError("offloadToVariables: could not insert into variables");
+            if (type == STRING) {
+                string_cot* strData = (string_cot*)data;
+                free(*strData);
+            }
             free(data);
         }
         else {
