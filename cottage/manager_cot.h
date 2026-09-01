@@ -36,7 +36,7 @@ RouteMap* globalRoutes;// = RouteMapInit();
 #define GLOBALROUTES globalRoutes
 
 bool newRoute(char* path, RouteEntry route) {
-    return RouteMapInsert(globalRoutes, path, route);
+    return RouteMapInsert(&globalRoutes, path, route);
 }
 RouteEntry getRoute(char* path) {
     return RouteMapGet(globalRoutes, path);
@@ -82,8 +82,10 @@ const char* globalAssetFolder = "./assets/";
 char* prependAssetFolder(char* path) {
     cottageCheck(NULL);
     char* newPath = (char*) calloc(strlen(globalAssetFolder) + strlen(path) + 1, sizeof(char));
-    strcpy(newPath, globalAssetFolder);
-    strcat(newPath, path);
+    if (newPath) {
+        strcpy(newPath, globalAssetFolder);
+        strcat(newPath, path);
+    }
     return newPath;
 }
 
@@ -100,7 +102,8 @@ char* cleanupPath(char* path) {
     size_t j = 0;
     for (size_t i = 0; i < strlen(path); i++) {
         if (path[i] == '/') {
-            if (strcmp(buffer, ".") != 0 && strcmp(buffer, "..") != 0) {
+            buffer[j] = 0; //null terminator to close off buffer
+            if (j > 0 && strcmp(buffer, ".") != 0 && strcmp(buffer, "..") != 0) {
                 //write the contents of buffer to newPath
                 if (buffer[0]) {
                     if (!newPath[0]) strcpy(newPath, buffer);
@@ -110,8 +113,7 @@ char* cleanupPath(char* path) {
                 //this may result in security vulnerabilities, so check later
                 strcat(newPath, "/");
             }
-            //reset buffer and j
-            memset(buffer, 0, j);
+            //reset j
             j = 0;
             continue;
         }
@@ -119,7 +121,8 @@ char* cleanupPath(char* path) {
         buffer[j++] = path[i];
     }
     // we may have data left over in buffer. copy it over
-    if (strcmp(buffer, ".") != 0 && strcmp(buffer, "..") != 0) {
+    buffer[j] = 0;
+    if (j > 0 && strcmp(buffer, ".") != 0 && strcmp(buffer, "..") != 0) {
         //write the contents of buffer to newPath
         if (buffer[0]) {
             if (!newPath[0]) strcpy(newPath, buffer);

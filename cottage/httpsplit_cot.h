@@ -397,6 +397,58 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
 
 }
 
+void* INTERNAL_StrToData(string_cot value, VARTYPE type) {
+    if (type != ERROR) {
+        void* data = NULL;
+        char* strData = NULL; //for strings
+        switch (type) {
+            case UINT: {
+                printf("offload to variables uint\n");
+                data = malloc(sizeof(uint_cot));
+                memcpy(data, &((uint_cot){BC_StrToUInt(value)}), sizeof(uint_cot));
+                break;
+            }
+            case INT: {
+                printf("offload to variables int\n");
+                data = malloc(sizeof(int_cot));
+                memcpy(data, &((int_cot){BC_StrToInt(value)}), sizeof(int_cot));
+                break;
+            }
+            case FLOAT: {
+                printf("offload to variables float\n");
+                data = malloc(sizeof(float_cot));
+                memcpy(data, &((float_cot){BC_StrToFloat(value)}), sizeof(float_cot));
+                break;
+            }
+            case STRING: {
+                printf("offload to variables string\n");
+                strData = BC_StrToStr(value);
+                if (strData)
+                {
+                    data = malloc(sizeof(string_cot));
+                    memcpy(data, &strData, sizeof(string_cot));
+                    //free(strData);
+                }
+                break;
+            }
+            case BOOL: {
+                printf("offload to variables bool\n");
+                data = malloc(sizeof(bool_cot));
+                memcpy(data, &((bool_cot){BC_StrToBool(value)}), sizeof(bool_cot));
+                break;
+            }
+            default: {
+                newResultError("offloadToVariables: variable is invalid");
+                return NULL;
+            }
+        }
+
+        if (strData) free(strData);
+        return data;
+    }
+    else return NULL;
+}
+
 //maybe include extraVariables here who knows
 //but this will involve some encoding
 siteVar* offloadToVariables(char* offload) {
@@ -448,61 +500,13 @@ siteVar* offloadToVariables(char* offload) {
                 //key remains the same
                 printf("key is %s, value is %s\n", key, value);
                 VARTYPE type = BC_StrToType(value);
-                if (type != ERROR) {
-
-                    void* data = NULL;
-                    char* strData = NULL; //for strings
-                    switch (type) {
-                        case UINT: {
-                            printf("offload to variables uint\n");
-                            data = malloc(sizeof(uint_cot));
-                            memcpy(data, &((uint_cot){BC_StrToUInt(value)}), sizeof(uint_cot));
-                            break;
-                        }
-                        case INT: {
-                            printf("offload to variables int\n");
-                            data = malloc(sizeof(int_cot));
-                            memcpy(data, &((int_cot){BC_StrToInt(value)}), sizeof(int_cot));
-                            break;
-                        }
-                        case FLOAT: {
-                            printf("offload to variables float\n");
-                            data = malloc(sizeof(float_cot));
-                            memcpy(data, &((float_cot){BC_StrToFloat(value)}), sizeof(float_cot));
-                            break;
-                        }
-                        case STRING: {
-                            printf("offload to variables string\n");
-                            char* strData = BC_StrToStr(value);
-                            if (strData)
-                            {
-                                data = malloc(sizeof(string_cot));
-                                memcpy(data, &strData, sizeof(string_cot));
-                                //free(strData);
-                            }
-                            break;
-                        }
-                        case BOOL: {
-                            printf("offload to variables bool\n");
-                            data = malloc(sizeof(bool_cot));
-                            memcpy(data, &((bool_cot){BC_StrToBool(value)}), sizeof(bool_cot));
-                            break;
-                        }
-                        default: {
-                            printf("offload to variables error\n");
-                            siteVarFree(variables);
-                            newResultError("offloadToVariables: variable is invalid");
-                            return NULL;
-                        }
-                    }
-
+                void* data = INTERNAL_StrToData(value, type);
+                if (data) {
                     bool status = siteVarCompositeInsertNew(&variables, key, type, 1, data);
                     if (!status) newResultError("offloadToVariables: could not insert into variables");
-                    if (strData) free(strData);
                     free(data);
                 }
                 else {
-
                     //what else could it be?
                     //it could be an array, so we'll take that into account.
                     if (BC_isArray(value)) {
@@ -523,13 +527,11 @@ siteVar* offloadToVariables(char* offload) {
                     //alternatively, we can interprete this as a string,
                     //but feels kind of weird
                 }
-
                 //after inserting, we must clear our key and value
                 memset(key, 0, strlen(key));
                 memset(value, 0, strlen(value));
                 index = 0;
                 state = false;
-                
             }
             else { //bad query
                 siteVarFree(variables);
@@ -538,77 +540,22 @@ siteVar* offloadToVariables(char* offload) {
             }
         }
         else {
-            value[index++] = offload[i];
+            if (index < 511) value[index++] = offload[i];
         }
     }
     
-    if (state == true) {
+    if (state == true && strlen(key) > 0 && strlen(value) > 0) {
         //we have to get the type of our data, then insert it
         //key remains the same
-        VARTYPE type = BC_StrToType(value);
         printf("key is %s, value is %s\n", key, value);
-        if (type != ERROR) {
-
-            void* data = NULL;
-            char* strData = NULL;
-
-            //first, check if its an array
-            
-
-            switch (type) {
-                case UINT: {
-                    printf("offload to variables uint\n");
-                    data = malloc(sizeof(uint_cot));
-                    memcpy(data, &((uint_cot){BC_StrToUInt(value)}), sizeof(uint_cot));
-                    break;
-                }
-                case INT: {
-                    printf("offload to variables int\n");
-                    data = malloc(sizeof(int_cot));
-                    memcpy(data, &((int_cot){BC_StrToInt(value)}), sizeof(int_cot));
-                    printf("int data was %i\n", *(int_cot**)data);
-                    break;
-                }
-                case FLOAT: {
-                    printf("offload to variables float\n");
-                    data = malloc(sizeof(float_cot));
-                    memcpy(data, &((float_cot){BC_StrToFloat(value)}), sizeof(float_cot));
-                    break;
-                }
-                case STRING: {
-                    printf("its a string yo\n");
-                    strData = BC_StrToStr(value);
-                    if (strData)
-                    {
-                        data = malloc(sizeof(string_cot));
-                        memcpy(data, &strData, sizeof(string_cot));
-                        //free(strData);
-                    }
-                    break;
-                }
-                case BOOL: {
-                    printf("offload to variables bool\n");
-                    data = malloc(sizeof(bool_cot));
-                    memcpy(data, &((bool_cot){BC_StrToBool(value)}), sizeof(bool_cot));
-                    break;
-                }
-                default: {
-                    printf("offload to variables error\n");
-                    siteVarFree(variables);
-                    newResultError("offloadToVariables: variable is invalid");
-                    return NULL;
-                }
-            }
-            printf("hi\n");
-            //printf("data was %s\n", *(char**)data);
+        VARTYPE type = BC_StrToType(value);
+        void* data = INTERNAL_StrToData(value, type);
+        if (data) {
             bool status = siteVarCompositeInsertNew(&variables, key, type, 1, data);
             if (!status) newResultError("offloadToVariables: could not insert into variables");
-            printf("offload to variables no\n");
-            if (strData) free(strData);
             free(data);
         }
         else {
-
             //what else could it be?
             //it could be an array, so we'll take that into account.
             if (BC_isArray(value)) {
@@ -626,17 +573,14 @@ siteVar* offloadToVariables(char* offload) {
                 return NULL;
             }
 
-
             //alternatively, we can interprete this as a string,
             //but feels kind of weird
         }
-
         //after inserting, we must clear our key and value
         memset(key, 0, strlen(key));
         memset(value, 0, strlen(value));
         index = 0;
         state = false;
-        
     }
     else { //bad query
         siteVarFree(variables);
@@ -644,7 +588,6 @@ siteVar* offloadToVariables(char* offload) {
         return NULL;
     }
 
-    printf("offload to variables end\n");
     return variables;
 }
 

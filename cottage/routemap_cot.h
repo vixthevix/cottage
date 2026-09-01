@@ -75,7 +75,7 @@ void RouteMapFree(RouteMap* map) {
     map = NULL;
 }
 
-bool RouteMapInsert(RouteMap* map, char* key, RouteEntry route);
+bool RouteMapInsert(RouteMap** map, char* key, RouteEntry route);
 
 RouteMap* RouteMapResize(RouteMap* map) {
     cottageCheck(NULL);
@@ -93,34 +93,34 @@ RouteMap* RouteMapResize(RouteMap* map) {
     return newmap;
 }
 
-bool RouteMapInsert(RouteMap* map, char* key, RouteEntry route) {
+bool RouteMapInsert(RouteMap** map, char* key, RouteEntry route) {
     cottageCheck(false);
-    if (!key || !map) return false;
+    if (!key || !(*map)) return false;
 
-    const size_t load = map->count * 100 / map->capacity;
-    if (load > 60) map = RouteMapResize(map);
+    const size_t load = (*map)->count * 100 / (*map)->capacity;
+    if (load > 60) *map = RouteMapResize(*map);
 
     RoutePair* newPair = RoutePairInit(key, route);
-    size_t initpos = stringHash(key) % map->capacity;
+    size_t initpos = stringHash(key) % (*map)->capacity;
     size_t index;
     RoutePair* curPair;
 
-    for (size_t i = 0; i < map->capacity; i++) {
-        index = (initpos + i) % map->capacity;
-        curPair = map->items[index];
+    for (size_t i = 0; i < (*map)->capacity; i++) {
+        index = (initpos + i) % (*map)->capacity;
+        curPair = (*map)->items[index];
 
         if (curPair == NULL) {
-            map->items[index] = newPair;
-            map->count++;
+            (*map)->items[index] = newPair;
+            (*map)->count++;
             return true;
         }
         if (strcmp(curPair->key, key) == 0) {
-            RoutePairFree(map->items[index]);
-            map->items[index] = newPair;
+            RoutePairFree((*map)->items[index]);
+            (*map)->items[index] = newPair;
             return true;
         }
         if (newPair->pd > curPair->pd) {
-            map->items[index] = newPair;
+            (*map)->items[index] = newPair;
             newPair = curPair;
         }
 

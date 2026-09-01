@@ -128,9 +128,6 @@ bool siteVarCompositeInsert(siteVar** target, siteVar* var) {
         printf("resizing...\n");
         (*target) = INTERNAL_siteVarCompositeResize((*target), true);
     }
-
-    printf("composite insert\n");
-
     //copy over var to insert
     siteVar* new = siteVarInit(var->name, var->type, var->arrayItemCount, var->data);
     size_t initpos = stringHash(new->name) % (*target)->arrayLen;
@@ -495,7 +492,9 @@ bool INTERNAL_siteVarNameLegal(char* name) {
         '[',
         ']',
         ',',
-        '.'
+        '.',
+        ';',
+        ':',
     }; 
 
     if (!name) return false;
