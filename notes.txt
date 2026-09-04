@@ -267,7 +267,7 @@ goals to complete before then:
             ive done this already, we shall see
 
         fix memory leaks (just openHTML right now i guess)
-        implement VAR specific error catching
+        implement VAR specific error catching (done)
 
         VERSION 1 BASICALLY DONE, now scale for multiusers
 
