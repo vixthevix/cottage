@@ -260,13 +260,13 @@ goals to complete before then:
                 handleRequest (done)
                 offloadToVariables (done)
                 defaultGet (maybe) (nah)
-                all the server functions in tcpsetup
+                all the server functions in tcpsetup (done)
 
             alternatively, we can inject these error messages into functions,
             such that they are printed to stderr but are not returned.
             ive done this already, we shall see
 
-        fix memory leaks (just openHTML right now i guess)
+        fix memory leaks (just openHTML right now i guess) (done as far as i can tell)
         implement VAR specific error catching (done)
 
         VERSION 1 BASICALLY DONE, now scale for multiusers

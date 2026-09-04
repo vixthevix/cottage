@@ -84,7 +84,7 @@ RouteMap* RouteMapResize(RouteMap* map) {
 
     for (size_t i = 0; i < map->capacity; i++) {
         if (map->items[i]) {
-            RouteMapInsert(newmap, map->items[i]->key, map->items[i]->route);
+            RouteMapInsert(&newmap, map->items[i]->key, map->items[i]->route);
         }
     }
     

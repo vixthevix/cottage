@@ -18,4 +18,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+//needed for multi-user
+#include <sys/epoll.h>
+#include <fcntl.h>
+
 #endif

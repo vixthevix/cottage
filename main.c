@@ -1,5 +1,7 @@
 #include "cottage/error_cot.h"
+#include "cottage/httpsplit_cot.h"
 #include "cottage/sitevar_cot.h"
+#include "cottage/tcpsetup_cot.h"
 #define COTTAGE_START
 #include "cottage/cottage.h"
 
@@ -50,8 +52,23 @@ int main(void) {
     int socketfd = serverInit(ADDRESS, PORT, true);
     if (socketfd <= -1) return 1;
 
-    if (!serverListen(socketfd, 1)) {
+    const int MAXCLIENTCOUNT = 64;
+
+    if (!serverListen(socketfd, MAXCLIENTCOUNT)) {
         printf("error listening\n");
+        serverClose(socketfd);
+        return 1;
+    }
+
+    //make non blocking
+    if (!applyNonBlocking(socketfd)) {
+        serverClose(socketfd);
+        return 1;
+    }
+
+    //start up the poll
+    cotPoll server_poll;
+    if (cotPollInit(&server_poll, socketfd, MAXCLIENTCOUNT).status == COT_ERROR) {
         serverClose(socketfd);
         return 1;
     }
@@ -88,42 +105,63 @@ int main(void) {
     newRoute("/notes", notes);
 
     while (true) {
-        int clientfd = serverAcceptClient(socketfd, NULL, NULL);
-        if (clientfd < 0) continue;
-        char* clientOffload = serverGetRequest(clientfd);
-        //printf("client offload is \n%s\n", clientOffload);
-        HttpRequest request = {0};
-        if (splitHttpRequest(&request, clientOffload) .status == COT_ERROR) {
-            return 1;
+        int ready_count = cotPollPoll(server_poll);
+        for (int i = 0; i < ready_count; i++) {
+            int active_fd = cotPollAccess(server_poll, i);
+            if (active_fd == socketfd) {
+                //new client
+                int clientfd = serverAcceptClient(socketfd, NULL, NULL);
+                if (clientfd < 0) continue;
+
+                //make client non blocking
+                if (!applyNonBlocking(clientfd)) {
+                    serverCloseClient(clientfd);
+                    continue;
+                }
+                
+                cotPollPush(server_poll, clientfd);
+            }
+            else {
+                //existing client
+                
+                char* clientOffload = serverRecvClient(active_fd);
+                HttpRequest request = {0};
+                if (splitHttpRequest(&request, clientOffload) .status == COT_ERROR) {
+                    return 1;
+                }
+                debugHttpRequest(request);
+                //we have no extra data
+                //we have a request
+                //now we just wire up the routeMap
+                //printf("NEW CLIENT\n");
+
+                //quick extraData
+                siteVar* extraData = siteVarInit("global", COMPOSITE, 0, NULL);
+                if (siteVarCompositeInsertNew(&extraData, "peak", UINT, 1, &((uint_cot){67}))) {
+                    printf("yippie\n");
+                }
+                else printf("not yippie\n");
+
+                if (!handleRequest(request, active_fd, extraData, GLOBALROUTES)) {
+                    printf("could not handle request\n");
+                    sendError(active_fd, ERROR_404);
+                }
+
+                HttpRequestFree(request);
+                siteVarFree(extraData);
+
+                cotPollPop(server_poll, active_fd);
+                if (clientOffload) free(clientOffload);
+                serverCloseClient(active_fd);
+
+            }
         }
-        debugHttpRequest(request);
-        //we have no extra data
-        //we have a request
-        //now we just wire up the routeMap
-        //printf("NEW CLIENT\n");
-
-        //quick extraData
-        siteVar* extraData = siteVarInit("global", COMPOSITE, 0, NULL);
-        if (siteVarCompositeInsertNew(&extraData, "peak", UINT, 1, &((uint_cot){67}))) {
-            printf("yippie\n");
-        }
-        else printf("not yippie\n");
-
-        siteVar* peak = siteVarCompositeAccess(extraData, "peak");
-        printf("peak: %u\n", *(uint_cot**)siteVarAccess(peak));
-    
-
-        if (!handleRequest(request, clientfd, extraData, GLOBALROUTES)) {
-            printf("could not handle request\n");
-            sendError(clientfd, ERROR_404);
-        }
-
-
-        if (clientOffload) free(clientOffload);
-        serverCloseClient(clientfd);
-        HttpRequestFree(request);
     }
+
     RouteMapFree(GLOBALROUTES);
+
+    cotPollClose(server_poll);
+    serverClose(socketfd);
 
     return 0;
 }
