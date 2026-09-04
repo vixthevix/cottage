@@ -91,11 +91,7 @@ stringMap* strMapResize(stringMap* strMap) { //currently only resize upwards, si
     }
     strMapFree(strMap);
 
-    
-    //printf("newmap:\ncount: %u, capacity: %u\n", newmap->count, newmap->capacity);
-
     return newmap;
-
 }
 
 
@@ -105,11 +101,7 @@ bool strMapInsert(stringMap** strMap, char* key, char* value) {
     
     const unsigned int load = (*strMap)->count * 100 / (*strMap)->capacity;
     if (load > 60) {
-        //printf("count: %u, capacity: %u, load: %u\n", (*strMap)->count, (*strMap)->capacity, load);
-        //printf("resizing...\n");
         (*strMap) = strMapResize((*strMap));
-        //printf("resizing done\n");
-        //printf("count: %u, capacity: %u, load: %u\n", (*strMap)->count, (*strMap)->capacity, load);
     }
     
     stringPair* newpair = strPairInit(key, value);
@@ -151,18 +143,14 @@ bool strMapInsert(stringMap** strMap, char* key, char* value) {
 
 char* strMapGet(stringMap* strMap, char* key) {
     cottageCheck(NULL);
-    //printf("strMap get starting\n");
-    //if (key) printf("key valid\n");
 
     unsigned int initpos = stringHash(key) % strMap->capacity;
     
-    //printf("initpos get\n");
     unsigned int index;
     stringPair* curpair;
     int curpd = 0;
     
     for (unsigned int i = 0; i < strMap->capacity; i++) {
-        //printf("loop start\n");
         index = (initpos + i) % strMap->capacity;
         curpair = strMap->items[index];
 
@@ -171,7 +159,6 @@ char* strMapGet(stringMap* strMap, char* key) {
         if (strcmp(curpair->key, key) == 0) return curpair->value;
 
         curpd++;
-        //printf("loop end\n");
     }
 
     return NULL;

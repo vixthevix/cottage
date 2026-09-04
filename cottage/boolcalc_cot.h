@@ -241,27 +241,21 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
             while ((c = expression[++i]) != BC_TERMINATOR) {
 			//while () {
                 BC_putAt(value, 0, c);
-                printf("c is %c\n", c);
             } 
-            printf("expression is '%s'\n", value);
             
 			//type checking done here
 			//everything must converge on varVal
 
 			if (BC_isUInt(value)) {
 				uint_cot number = BC_StrToUInt(value);
-				printf("its a uint: %lu\n", number);
-				printf("number is %lu\n", number);
 				varVal = siteVarInit("", UINT, 1, &number);
 			}
 			else if (BC_isInt(value)) {
 				int_cot number = BC_StrToInt(value);
-				printf("its a int: %li\n", number);
 				varVal = siteVarInit("", INT, 1, &number);
 			}
 			else if (BC_isFloat(value)) {
 				float_cot number = BC_StrToFloat(value);
-				printf("its a double: %lf\n", number);
 				varVal = siteVarInit("", FLOAT, 1, &number);
 			}
 			// else if (BC_isChar(value)) {
@@ -270,10 +264,7 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 			// }
 			else if (BC_isString(value)) {
 				string_cot string = BC_StrToStr(value);
-				printf("string is %s\n", string);
 				varVal = siteVarInit("", STRING, 1, &string);
-
-				printf("string varVal with value %s\n", *((char**)siteVarAccess(varVal)));
 				free(string);
 			}
 			else if (BC_isBool(value)) {
@@ -289,7 +280,6 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 				//if (!varVal) return newResultError("BC_evaluate: invalid element in expression"); //if variable is not defined, terminate
 
 				// if (varVal->type == STRING) {
-				// 	printf("%s is a string, with value %s\n", varVal->name, *((char**)siteVarAccess(varVal)));
 				// }
 				// //cannot operate on composites
 				// if (varVal->type == COMPOSITE) {
@@ -318,32 +308,22 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 			switch (stack[sp]->type) {
 				case UINT: {
 					uint_cot* val = (uint_cot*)stackVal;
-					printf("val was %lu, ", *val);
 					*val = !(*val);
-					printf("val is now %lu\n", *val);
-					// siteVarUpdate(stack[sp], val);
-					// free(val);
 					break;
 				}
 				case INT: {
 					int_cot* val = (int_cot*)stackVal;
 					*val = !(*val);
-					// siteVarUpdate(stack[sp], val);
-					// free(val);
 					break;
 				}
 				case FLOAT: { //used to be DOUBLE
 					float_cot* val = (float_cot*)stackVal;
 					*val = !(*val);
-					// siteVarUpdate(stack[sp], val);
-					// free(val);
 					break;
 				}
 				case BOOL: {
 					bool_cot* val = (bool_cot*)stackVal;
 					*val = !(*val);
-					// siteVarUpdate(stack[sp], val);
-					// free(val);
 					break;
 				}
 				default: {
@@ -407,10 +387,6 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 			void* aVal = siteVarAccess(a);
 			void* bVal = siteVarAccess(b);
 
-			
-
-			printf("a.name = %s\nb.name = %s\n", a->name, b->name);
-
 			if (a->type == STRING) {
 
 				string_cot aString = *((string_cot*)aVal);
@@ -419,8 +395,6 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 				//siteVarFree(b);
 				// a = NULL;
 				// b = NULL;
-
-				printf("comparing %s to %s\n", aString, bString);
 
 				switch (c) {
 					case '<': {
@@ -436,23 +410,12 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 						break;
 					}
 					case '=': {
-						printf("equalling\n");
 						//make a siteVar and put it in
 						if (!strcmp(aString, bString)) {
-							printf("bombaclatt\n");
 							stack[++sp] = siteVarInit("", BOOL, 1, &((bool){true}));
-							//siteVarFree(a);
-							//siteVarFree(b);
-							//a = NULL;
-							//b = NULL;
 						}
 						else {
-							printf("what\n");
 							stack[++sp] = siteVarInit("", BOOL, 1, &((bool){false}));
-							//siteVarFree(a);
-							//siteVarFree(b);
-							//a = NULL;
-							//b = NULL;
 						}
 						break;
 					}
@@ -505,10 +468,6 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 					siteVarFree(a); siteVarFree(b);
 					goto failure;
 				}
-				//BC_siteVarToNumber(b->type, bVal);
-
-				printf("aNum is %lf, bNum is %lf\n", aNum, bNum);
-
 
 				bool curResult = false;
 				switch (c) {
@@ -527,14 +486,12 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 					}
 				}
 				stack[++sp] = siteVarInit("", BOOL, 1, &((bool){curResult}));
-				//printf("error probably here\n");
 			}
 			if (aVal) free(aVal); 
 			if (bVal) free(bVal);
 			siteVarFree(a); siteVarFree(b);
 			a = NULL;
 			b = NULL;
-			//printf("error probably not here\n");
 		}
 	}
 

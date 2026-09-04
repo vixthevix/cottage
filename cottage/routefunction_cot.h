@@ -42,7 +42,7 @@ typedef struct HttpRequest {
 
 void debugHttpRequest(HttpRequest request) {
     cottageCheck();
-    printf(
+    fprintf(stderr,
         "REQUEST DEBUG\n"
         "TARGET:%s\n"
         "PAYLOAD:%s\n"

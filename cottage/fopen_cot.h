@@ -206,9 +206,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
         }
         else if (reachedColon) {
             reachedColon = false;
-            //check the command
-            printf("command is %s\n", command);
-
             mode = modeNONE;
             
             if (!strcmp(command, "IF")) {
@@ -255,9 +252,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 // memset(command, 0, commandSize * sizeof(char));
                 // memset(offload, 0, offloadSize * sizeof(char));
             }
-            else if (!strcmp(command, "ELSE-IF")) {
-                printf("curState: valid:%s, ifAppeared:%s, elseAppeared:%s\n", states[curCondState].valid ? "true":"false", states[curCondState].ifAppeared ? "true":"false", states[curCondState].elseAppeared ? "true":"false");
-                
+            else if (!strcmp(command, "ELSE-IF")) {                
                 if (!states[curCondState].ifAppeared || states[curCondState].elseAppeared) {
                     newResultError("openHTML: ELSE-IF in invalid spot.");
                     goto failure;
@@ -283,11 +278,9 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 
                 // if (ifStates[ifCount] == false) {
                 //     // if (!ifValid) {
-                //     //     printf("else if happening\n");
                 //     //     mode = 2;
                 //     //     goto jumpIF;
                 //     // }
-                //     printf("else if happening\n");
                 //     mode = 2;
                 //     goto jumpIF;
                 // }
@@ -318,7 +311,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 memset(command, 0, commandSize * sizeof(char));
                 memset(offload, 0, offloadSize * sizeof(char));
                 
-                //printf("reached else, ifCount is %i, ifInvalidState is %i, ifValid is %i\n", ifCount, ifInvalidState, ifValid);
                 //we have to be in the same ifInvalidState, and ifValid must be false
                 
                 //this code executes if ifStates[ifCount] is false
@@ -334,10 +326,8 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 
                 // // if (ifCount == ifInvalidState && !ifValid) {
                 // //     // if (!ifValid) {
-                // //     //     printf("else happening\n");
                 // //     //     ifValid = true;
                 // //     // }
-                // //     printf("else happening\n");
                 // //     ifValid = true;
                 // // }
                 // // //if we are in a different state, then we know that the if passed
@@ -368,13 +358,11 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 memset(command, 0, commandSize * sizeof(char));
                 memset(offload, 0, offloadSize * sizeof(char));
                 
-                //printf("reached endif, ifCount is %i, ifInvalidState is %i, ifValidSate is %i, ifValid is %i\n", ifCount, ifInvalidState, ifValidState, ifValid);              
                 //if (!ifAppeared) goto failure;
                 //if (ifCount == ifInvalidState || ifCount == ifValidState) {
                 // ifValid = true;
                 // elseValid = true;
                 // elseIfValid = true;
-                // printf("endif is a success\n");
                 // //}
                 // ifAppeared = false;
                 // elseAppeared = false;
@@ -406,26 +394,21 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 goto jumpFOR;
             }
             else if (!strcmp(command, "ENDFOR")) {
-                printf("ENDFOR REACHED\n");
                 if (curLoopState <= -1) {
                     newResultError("openHTML: ENDFOR appeared before FOR.");
                     goto failure;
                 }
                 loopStates[curLoopState].cur++;
                 if (loopStates[curLoopState].cur == loopStates[curLoopState].count) {
-                    printf("ENDFOR END REACHED\n");
                     //the end.
                     //we delete the iterator from our variables, and go down a loopstate
-                    printf("iterator name: %s\n", loopStates[curLoopState].iterator->name);
                     siteVarCompositeDelete(&variables, loopStates[curLoopState].iterator->name);
                     loopStates[curLoopState].iterator = NULL;
                     curLoopState--;
                 }
                 else {
                     //otherwise, update the iterator, and set di to where we need to be
-                    printf("ENDFOR CONTINUE REACHED\n");
                     size_t varSize = INTERNAL_siteVarTypeSize(loopStates[curLoopState].listType);
-                    printf("varSize is %u\n", varSize);
                     void* value = &loopStates[curLoopState].list[loopStates[curLoopState].cur * varSize];
                     siteVarUpdate(loopStates[curLoopState].iterator, value);
                     fi = loopStates[curLoopState].returnIndex;
@@ -461,7 +444,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
             else {
                 finishedEmbedRead = true;
-                printf("offload is %s\n", offload);
                 oi = 0;
                 //find in variables
                 //first check variables is initialised
@@ -469,7 +451,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 //     newResultError("openHTML: VAR, variables not initialised.");
                 //     goto failure;
                 // }
-                //printf("offload is %s\n", offload);
                 //char* value = qmapGet(variables, offload);
 
                 /*
@@ -522,11 +503,9 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                         goto failure;
                     }
                 } 
-                printf("WOOO\n");
                 //we need to convert this value into a string
                 char* value = BC_VariableToString(var, 0);
                 if (var) siteVarFree(var);
-                printf("VAR VALUE: %s\n", value);
                 if (value) {
                     //write into data
                     for (int j = 0; j < strlen(value); j++, di++) {
@@ -556,14 +535,12 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
         }
         else if (mode == modeINSERT) {
             jumpINSERT:
-            //printf("yeah\n");
             //we need to read the filepath, and the variables.
             if (c != '}') {
                 offload[oi++] = c;
             }
             else {
                 finishedEmbedRead = true;
-                printf("offload is %s\n", offload);
                 oi = 0;
                 //first get the link
                 const int linkSize = offloadSize;
@@ -571,11 +548,8 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 int j = 0;
                 for (j = 0; offload[j] != 0 && offload[j] != ';'; j++) {
                     link[j] = offload[j];
-                    //printf("current link is %s\n", link);
                 }
-                printf("link is %s\n", link);
                 if (offload[j] == 0) { //no input variables
-                    printf("im going\n");
                     //just read the data
                     goto readINPUT;
                 }
@@ -619,7 +593,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                         //we have a value and pair
                         if (curVar && curValue) {
 
-                            printf("fopen: curVar is %s and curValue is %s\n", curVar, curValue);
                             //curVar is the name, curValue is the value
                             //we check the basic types first (int -> string) and put in as siteVar
                             //we also check if its an array by checking for []
@@ -635,7 +608,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                             //first, check if its a number
                             //a string, or a variable
                             if (BC_isUInt(curValue)) {
-                                printf("ITS A UINT\n");
                                 siteVarCompositeInsertNew(&newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
                             }
                             else if (BC_isInt(curValue)) {
@@ -656,7 +628,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                             }
 
                             else if (BC_isArray(curValue)) { //NEXT TASK
-                                printf("ITS AN ARRAY\n");
                                 siteVar* storage = NULL;
                                 cotResult storageResult = BC_ArrayToSiteVar(&storage, curVar, curValue, variables);
                                 //now we have storage, first check if its null
@@ -710,7 +681,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 //THEN copy it over.
                 if (!isVar) {
                     if (curVar && curValue) {
-                        printf("fopen: curVar is %s and curValue is %s\n", curVar, curValue);
                         if (BC_isUInt(curValue)) {
                             siteVarCompositeInsertNew(&newVariables, curVar, UINT, 1, &((uint_cot){BC_StrToUInt(curValue)}));
                         }
@@ -730,32 +700,20 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                             //BC_delAt(curValue, strlen(curValue) - 1);
                             //qmapInsert(newVariables, curVar, curValue);
                             char* curValueStripped = BC_StrToStr(curValue); 
-                            printf("IS STRING: %s\n", curValueStripped);
                             siteVarCompositeInsertNew(&newVariables, curVar, STRING, 1, &curValueStripped);
                             
                             //try getting back the variable
                             siteVar* strAccess = siteVarCompositeAccess(newVariables, curVar);
-                            if (strAccess) {
-                                printf("strAccess returns name: %s, value: %s\n", strAccess->name, *(char**)siteVarAccess(strAccess));
-                            }
-
                         }
                         else if (BC_isArray(curValue)) { //NEXT TASK
-                            printf("ITS AN ARRAY\n");
                             siteVar* storage = NULL;
-                            cotResult storageResult = BC_ArrayToSiteVar(&storage, curVar, curValue, variables);                            printf("storage made\n");
+                            cotResult storageResult = BC_ArrayToSiteVar(&storage, curVar, curValue, variables);
                             //now we have storage, first check if its null
                             //then put it into our thing
                             if (storageResult.status == COT_OK) {
-                                printf("storage valid\n");
                                 //iterate over storage strings just in case
-                                string_cot* strings = (string_cot*)storage->data;
-                                for (size_t i = 0; i < storage->arrayItemCount; i++) {
-                                    printf("storage %u is %s\n", i, strings[i]);
-                                }
                                 siteVarCompositeInsert(&newVariables, storage);
                                 siteVarFree(storage);
-                                printf("storage inserted\n");
                             }
                             else {
                                 newResultError("openHTML: INSERT, conversion into array is invalid");
@@ -784,9 +742,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 readINPUT:
                 char* dataINPUT = NULL;
                 cotResult dataINPUTResult = openHTML(&dataINPUT, link, newVariables);
-                printf("jumpINSERT: dataINPUT read\n");
                 free(link);
-                printf("jumpINSERT: link freed\n");
                 if (dataINPUTResult.status == COT_ERROR) {
                     newResultError("openHTML: INSERT, failed to read input file");
                     goto failure;
@@ -794,25 +750,11 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
 
                 //reset newVariables
                 if (newVariables) {
-                    siteVar** newVariablesData = (siteVar**)newVariables->data;
-                    if (!newVariablesData) printf("newVariablesData invalid\n");
-                    for (size_t i = 0; i < newVariables->arrayLen; i++) {
-                        siteVar* bozo = newVariablesData[i];
-                        printf("%u\n", i);
-                        if (bozo && bozo->name) {
-                            printf("valid\n");
-                            printf("bozo at %u is %s\n", i, bozo->name);
-                        }
-                    }
-                    printf("done\n");
                     siteVarFree(newVariables);
                     newVariables = NULL;
                 }
-                printf("jumpINSERT: newVariables freed\n");
                 //copy over the new data
                 if (dataINPUT) {
-                    printf("input data got\n");
-                    //printf("%s\n", dataINPUT);
                     //we need to reallocate our data to take into account
                     //increases in size
                     //curDataSize += strlen(dataINPUT);
@@ -821,10 +763,8 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                         //data[di] = dataINPUT[j];
                         dataVectorPush(&data, dataINPUT[j]);
                     }
-                    printf("dataINPUT read done\n");
                 }
                 else {
-                    printf("input data not got\n");
                     newResultError("openHTML: INSERT, dataINPUT empty for some reason");
                     goto failure;
                 } 
@@ -833,7 +773,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 memset(command, 0, commandSize * sizeof(char));
                 memset(offload, 0, offloadSize * sizeof(char));
 
-                //printf("current data:\n\n%s\n\n", data);
             }
 
         }
@@ -853,7 +792,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                         newResultError("openHTML: IF, error with expression evaluation");
                         goto failure;
                     }
-                    printf("formatted is %s, transformed is %s, result is %i\n", formatted, transformed, result);
                     
                     
                     //has there been a chainsuccess signal?
@@ -911,7 +849,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                     while (i < strlen(offload)) {
                         iteratorTarget[j++] = offload[i++];
                     }
-                    printf("mode is 3\niterator is %s and target is %s\n", iteratorName, iteratorTarget);
                     
                     //now we check what target can be
                     //is it a specified range?
@@ -1092,12 +1029,10 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
     goto success;
     
     failure:
-    printf("failed\n");
     free(data.data);
     data.data = NULL;
 
     success:
-    printf("success\n");
     fclose(file);
     free(offload);
     free(command);
@@ -1107,7 +1042,6 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
     //ensure that the state indexes are where they should be
     if (curCondState != 0 || curLoopState != -1) {
         //failure
-        printf("failed due to conditional/loop state invalid\n");
         newResultError("openHTML: conditional/loop state invalid");
         free(data.data);
         data.data = NULL;
@@ -1115,10 +1049,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
 
     if (data.data) {
         //set safety null terminator
-        printf("data valid\n");
         data.data[data.index] = 0;
-        printf("data null terminated\n");
-        printf("full data:\n\n%s\n\n", data.data);
         *input = data.data;
         return newResultOK();
     }
@@ -1136,18 +1067,14 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
     if (openHTML(&data, filepath, variables).status == COT_ERROR) {
         return false;
     }
-    printf("openHTML success\n");
-    printf("full data:\n\n%s\n\n", data);
 
     if (data) goto success;
     
     failure:
-    printf("failed\n");
     data = NULL;
 
     success:
     if (data) {
-        printf("sendHTML 1\n");
         //now send the HTTP response, it must be in a specific format
         //first, the header
         const char* header = 
@@ -1157,13 +1084,11 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
         "\r\n";
         send(client, header, strlen(header), 0);
 
-        printf("sendHTML 2\n");
         //then the data
         send(client, data, strlen(data), 0);
 
 
         free(data);
-        printf("sendHTML 3\n");
         return true;
     }
     else return false;

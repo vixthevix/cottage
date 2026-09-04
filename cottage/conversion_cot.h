@@ -63,7 +63,6 @@ uint_cot BC_StrToUInt(char* exp) {
         char c = exp[i];
         number += ((c - '0') * mult);
         number *= 10;
-        printf("strToNum i is %i\n", i);
     }
     number /= 10;
     return number;
@@ -106,7 +105,6 @@ int64_t BC_StrToInt(char* exp) {
         
 		number += ((c - '0') * mult);
         number *= 10;
-        printf("strToNum i is %i\n", i);
     }
     number /= 10;
 	if (isNegative) number *= -1;
@@ -171,13 +169,10 @@ double BC_StrToFloat(char* exp) {
 			pointTrail += digit;
 			div *= 10;
 		}
-        //printf("strToNum i is %i\n", i);
     }
     number /= 10;
-	printf("number is %f, trailing is %f\n", number, pointTrail);
 	number += pointTrail;
 	if (isNegative) number *= -1;
-	printf("number is %f\n", number);
     return number;
 
 }
@@ -239,7 +234,6 @@ bool BC_StrToBool(char* exp) {
 //         char c = exp[i];
 //         number += ((c - '0') * mult);
 //         number *= 10;
-//         printf("strToNum i is %i\n", i);
 //     }
 //     number /= 10;
 //     return number;
@@ -257,35 +251,27 @@ cotResult BC_siteVarToNumber(generalNumber* input, VARTYPE type, void* val) {
 	// cottageCheck((cotResult){0});
 	switch (type) {
 		// case INT64:  {
-		// 	printf("INT\n");
 		// 	return (generalNumber)(*((int64_t*)val));
 		// }
 		case INT:  {
             int_cot raw_val = *((int_cot*)val);
             // Print the pointer address, the exact 64-bit integer, and the casted double
-            printf("INT check | Address: %p | Raw Int: %lld | Casted Double: %f\n", 
-                   val, (long long)raw_val, (double)raw_val);
 			*input = (generalNumber)raw_val;	
 		    break;
         }
         case UINT: {
             uint_cot raw_val = *((uint_cot*)val);
             // Print the pointer address, the exact 64-bit integer, and the casted double
-            printf("INT check | Address: %p | Raw Int: %lld | Casted Double: %f\n", 
-                   val, (long long)raw_val, (double)raw_val);
 			*input = (generalNumber)raw_val;	
 		    break;
 		}
         case FLOAT: { //used to be DOUBLE
             double raw_val = *((double*)val);
             // Print the pointer address, the exact 64-bit integer, and the casted double
-            printf("INT check | Address: %p | Raw Int: %lld | Casted Double: %f\n", 
-                   val, (long long)raw_val, (double)raw_val);
 			*input = (generalNumber)raw_val;	
 		    break;
 		}
         default:     {
-			printf("ERROR\n");
 			return newResultError("BC_siteVarToNumber: invalid VARTYPE for conversion");
 		}
 	}
@@ -371,11 +357,8 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 			for (size_t j = i + 1, k = 0; j < strlen(exp); j++, k++) {
 				remainder[k] = exp[j];
 			}
-			printf("var is %s, remainder is %s\n", var, remainder);
-			printf("looking for %s inside of %s\n", var, variables->name);
+
 			siteVar* compositeVars = siteVarCompositeAccess(variables, var);
-			if (!compositeVars) printf("OH NO\n");
-			printf("looking for %s inside of %s\n", remainder, compositeVars->name);
 			siteVar* returnVal = NULL;
 			cotResult returnValResult = BC_StrToVariable(&returnVal, remainder, compositeVars, originalVariables);
 			if (returnValResult.status == COT_ERROR) {
@@ -385,18 +368,12 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 				return newResultError("BC_StrToVariable: could not process '.'");
 			}
 
-			if (returnVal) printf("returnVal found\n");
-			else printf("returnVal Not found\n");
-
 			siteVarFree(compositeVars);
 			free(remainder);
 			free(var);
 
 			*input = returnVal;
 
-			// if (returnVal->type == STRING) {
-			// 	printf("string found\n");
-			// }
 			return newResultOK();
 		}
 		else if (c == '[') {
@@ -430,16 +407,11 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 			//as you can have a whole number float with a decimal spot in there,
 			//but this is a fix for later
 
-			printf("thing inside of brackets is a variable: %s\n", bracketVar);
-			printf("looking for %s inside of %s\n", var, variables->name);
 			siteVar* x = siteVarCompositeAccess(variables, var);
 			//if x is a composite, we cannot perform accessAt with it.
 			//so the statement is invalid.
 			//return NULL and do some clean up
 			if (!x || (x && x->type == COMPOSITE)) {
-				//printf("oh crap\n");
-				//if (x && x->type == COMPOSITE) printf("x is a composite\n");
-				//else if (!x) printf("x is null\n");
 				
 				siteVarFree(x);
 				free(var);
@@ -493,7 +465,6 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 				// if (indexVar->type == STRING || indexVar->type == BOOL) {
 
 				// }
-				printf("strToVariable bracket pass\n");
 
 				void* indexData = siteVarAccess(indexVar);
 				if (!indexData) {
@@ -513,7 +484,6 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 					free(bracketVar);
 					return newResultError("BC_StrToVariable: could not convert index into a number");
 				}
-				printf("bracket index is %lf\n", index);
 				void* data = siteVarAccessAt(x, index);
 				if (!data) {
 					siteVarFree(indexVar);
@@ -610,24 +580,17 @@ char* BC_BoolToStr(bool_cot target) {
 char* BC_VariableToString(siteVar* variable, size_t index) {
 	cottageCheck(NULL);
     if (!variable) return NULL;
-	printf("hi\n");
 
     switch(variable->type) {
         case INT: {
-			printf("yep its an int\n");
             int_cot* value = (int_cot*)siteVarAccessAt(variable, index);
-			printf("did we get it\n");
-			if (!value) printf("value not got\n");
             char* buffer = BC_IntToStr(*value);
-			printf("buffer made\n");
             free(value);
             return buffer;
         }
         case UINT: {
             uint_cot* value = (uint_cot*)siteVarAccessAt(variable, index);
-			printf("uint value is %u\n", *value);
             char* buffer = BC_UIntToStr(*value);
-			printf("buffer made\n");
             free(value);
             return buffer;
         }
@@ -644,10 +607,7 @@ char* BC_VariableToString(siteVar* variable, size_t index) {
             return buffer;
         }
 		case STRING: {
-			printf("variable to string, its a string\n");
 			string_cot* value = (string_cot*)siteVarAccessAt(variable, index);
-            if (!value) printf("variable to string, string vale invalid\n");
-			else printf("variable to string, string value valid: %u\n", value);
 			return *value;
 
 		}

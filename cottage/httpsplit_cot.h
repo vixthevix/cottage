@@ -116,7 +116,6 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
         *input = error;
         return newResultError("splitHttpRequest: data is invalid");
     }
-    //printf("data valid\n");
     //first line has type, target and version, separated by spaces
 
     char buffer[512] = {0};
@@ -131,7 +130,6 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
         if (data[dataIndex] != ' ' && (data[dataIndex] != '\r' && data[dataIndex + 1] != '\n')) 
             buffer[bufferIndex++] = data[dataIndex];
         else {
-            ////printf("buffer: %s\n", buffer);
             if (item == 0) { //type
                 request.type = StrToHTTPTYPE(buffer);
             }
@@ -169,20 +167,16 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
 
     //enable the stringmap
 
-    //printf("enabling stringmap\n");
     //problem here
 
     request.options = strMapInit();
 
     while (dataIndex < (dataLen - 1)) {
         if (data[dataIndex] != '\r' && data[dataIndex + 1] != '\n') {
-            ////printf("writing...\n");
             buffer[bufferIndex++] = data[dataIndex++];
         }
         else {
-            ////printf("buffer is %s\n", buffer);
             if (!buffer[0]) { //is buffer empty?
-                //printf("buffer empty\n");
                 break;
             }
             dataIndex += 2;
@@ -213,15 +207,11 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
             }
 
             //now just insert them
-            //printf("%s:%s\n", option, value);
             strMapInsert(&request.options, option, value);
-            //printf("string map inserted\n");
             memset(buffer, 0, bufferIndex);
             bufferIndex = 0;
-            //printf("buffer reset\n");
         }
     }
-    //printf("stringmap filled\n");
     //stringmap is now filled up
     if ((data[dataIndex] == '\r' && data[dataIndex + 1] == '\n') || dataIndex >= dataLen) dataIndex += 2;
     else {
@@ -320,7 +310,6 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
     cottageCheck(false);
     if (!HttpRequestValid(request) || !routes) return false;
 
-    //printf("handling requests\n");
 
     char link[512] = {0};
     int index = 0;
@@ -340,7 +329,6 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
 
     switch (request.type) {
         case GET: {
-            //printf("route is GET\n");
             if (route.routeGet) {
                 route.routeGet(request, clientfd, extraData);
                 goto success;
@@ -370,7 +358,6 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
         }
         default: {
             //do nothing
-            //printf("route is INVALID\n");
             break;
         }
     }
@@ -403,25 +390,21 @@ void* INTERNAL_StrToData(string_cot value, VARTYPE type) {
         char* strData = NULL; //for strings
         switch (type) {
             case UINT: {
-                printf("offload to variables uint\n");
                 data = malloc(sizeof(uint_cot));
                 memcpy(data, &((uint_cot){BC_StrToUInt(value)}), sizeof(uint_cot));
                 break;
             }
             case INT: {
-                printf("offload to variables int\n");
                 data = malloc(sizeof(int_cot));
                 memcpy(data, &((int_cot){BC_StrToInt(value)}), sizeof(int_cot));
                 break;
             }
             case FLOAT: {
-                printf("offload to variables float\n");
                 data = malloc(sizeof(float_cot));
                 memcpy(data, &((float_cot){BC_StrToFloat(value)}), sizeof(float_cot));
                 break;
             }
             case STRING: {
-                printf("offload to variables string\n");
                 strData = BC_StrToStr(value);
                 if (strData)
                 {
@@ -432,7 +415,6 @@ void* INTERNAL_StrToData(string_cot value, VARTYPE type) {
                 break;
             }
             case BOOL: {
-                printf("offload to variables bool\n");
                 data = malloc(sizeof(bool_cot));
                 memcpy(data, &((bool_cot){BC_StrToBool(value)}), sizeof(bool_cot));
                 break;
@@ -463,7 +445,6 @@ siteVar* offloadToVariables(char* offload) {
     //so lets change this
     
     // offload = urlDecode(offload);
-    // printf("url decoded offload is %s\n", offload);
     
     //look for equals and question marks
     
@@ -479,7 +460,6 @@ siteVar* offloadToVariables(char* offload) {
     }
     
     bool state = false;
-    printf("offload to variables start\n");
     for (size_t i = 0; i < strlen(offload); i++) {
         if (offload[i] == '=') {
             if (state == false) {
@@ -498,7 +478,6 @@ siteVar* offloadToVariables(char* offload) {
             if (state == true) {
                 //we have to get the type of our data, then insert it
                 //key remains the same
-                printf("key is %s, value is %s\n", key, value);
                 VARTYPE type = BC_StrToType(value);
                 void* data = INTERNAL_StrToData(value, type);
                 if (data) {
@@ -551,7 +530,6 @@ siteVar* offloadToVariables(char* offload) {
     if (state == true && strlen(key) > 0 && strlen(value) > 0) {
         //we have to get the type of our data, then insert it
         //key remains the same
-        printf("key is %s, value is %s\n", key, value);
         VARTYPE type = BC_StrToType(value);
         void* data = INTERNAL_StrToData(value, type);
         if (data) {
@@ -607,7 +585,6 @@ bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char
     cottageCheck(false);
     if (!HttpRequestValid(request) || request.type != GET) return false;
 
-    //printf("default get\n");
     //filePath has our direct link.
     //we need our offload though, we can use strstr for this conveniently
 

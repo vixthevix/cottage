@@ -1,6 +1,3 @@
-#include "cottage/error_cot.h"
-#include "cottage/httpsplit_cot.h"
-#include "cottage/sitevar_cot.h"
 #include "cottage/tcpsetup_cot.h"
 #define COTTAGE_START
 #include "cottage/cottage.h"
@@ -48,30 +45,10 @@ int main(void) {
 
     const char* ADDRESS = "0.0.0.0";
     const char* PORT = "8080";
-
-    int socketfd = serverInit(ADDRESS, PORT, true);
-    if (socketfd <= -1) return 1;
-
     const int MAXCLIENTCOUNT = 64;
 
-    if (!serverListen(socketfd, MAXCLIENTCOUNT)) {
-        printf("error listening\n");
-        serverClose(socketfd);
-        return 1;
-    }
-
-    //make non blocking
-    if (!applyNonBlocking(socketfd)) {
-        serverClose(socketfd);
-        return 1;
-    }
-
-    //start up the poll
-    cotPoll server_poll;
-    if (cotPollInit(&server_poll, socketfd, MAXCLIENTCOUNT).status == COT_ERROR) {
-        serverClose(socketfd);
-        return 1;
-    }
+    ServerConfig* server = serverInit(ADDRESS, PORT, MAXCLIENTCOUNT);
+    if (!server) return 1;
 
     //THE ROUTES
     RouteEntry home = {
@@ -105,21 +82,15 @@ int main(void) {
     newRoute("/notes", notes);
 
     while (true) {
-        int ready_count = cotPollPoll(server_poll);
+        int ready_count = CotPollPoll(server->poll);
         for (int i = 0; i < ready_count; i++) {
-            int active_fd = cotPollAccess(server_poll, i);
-            if (active_fd == socketfd) {
+            int active_fd = CotPollAccess(server->poll, i);
+            if (active_fd == server->server_fd) {
                 //new client
-                int clientfd = serverAcceptClient(socketfd, NULL, NULL);
+                int clientfd = serverAcceptClient(server);
                 if (clientfd < 0) continue;
-
-                //make client non blocking
-                if (!applyNonBlocking(clientfd)) {
-                    serverCloseClient(clientfd);
-                    continue;
-                }
                 
-                cotPollPush(server_poll, clientfd);
+                CotPollPush(server->poll, clientfd);
             }
             else {
                 //existing client
@@ -150,7 +121,7 @@ int main(void) {
                 HttpRequestFree(request);
                 siteVarFree(extraData);
 
-                cotPollPop(server_poll, active_fd);
+                CotPollPop(server->poll, active_fd);
                 if (clientOffload) free(clientOffload);
                 serverCloseClient(active_fd);
 
@@ -160,8 +131,7 @@ int main(void) {
 
     RouteMapFree(GLOBALROUTES);
 
-    cotPollClose(server_poll);
-    serverClose(socketfd);
+    serverClose(server);
 
     return 0;
 }
