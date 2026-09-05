@@ -1,3 +1,9 @@
+/*
+Localises C Standard Library inclusions into one file.
+
+Code is part of the cottage framework (https://github.com/vixthevix/cottage)
+*/
+
 #ifndef DEPENDENCIES_COT
 #define DEPENDENCIES_COT
 
@@ -7,10 +13,10 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
-#include <ctype.h>
 #include <stdint.h>
-
 #include <math.h>
+
+//needed for error handling
 #include <time.h>
 
 //needed for sockets

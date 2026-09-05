@@ -739,9 +739,4 @@ bool siteVarInsert(siteVar** target, void* data) {
 
 }
 
-#define siteVarTransfer(type, name, function) type name = *(type*)function
-
-#define siteVarTransfer(type, name, function) type name = *(type*)function
-
-
 #endif

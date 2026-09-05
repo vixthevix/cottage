@@ -270,8 +270,9 @@ goals to complete before then:
         implement VAR specific error catching (done)
 
         multi user scale (done)
-        remove all printf
+        remove all printf (done)
         add comments and clean up code and document
+        make INTERNAL functions static
         make somewhat of a proper README
         
         also, we kind of pushed the wrong thing to github. 
@@ -284,6 +285,15 @@ goals to complete before then:
         kind of like with CGame
 
         VERSION 1 BASICALLY DONE
+            Things I ask kutaj to do:
+                Check for memory safety.
+                Rename functions and structs if appropriate.
+                Discuss if all numeric types should be boiled down to just NUMBER (replacing FLOAT).
+                Generally just review cottage and give me feedback.
+                tell him about TRY CATCH idea and how to implement it.
+                tell him about putting HTML cottage tags inside normal HTML tags.
+                kind of like <div id="{{VAR:x;"error"}}">
+
 
         implement error struct with
         a try-catch system (try doing try, otherwise display in catch)

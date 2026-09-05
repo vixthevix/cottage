@@ -1,10 +1,16 @@
+/*
+Main cottage header to include in main code.
+
+Code is part of the cottage framework (https://github.com/vixthevix/cottage)
+*/
+
 //debug statement, remove from final code
 #define COTTAGE_START
 
-#ifdef COTTAGE_START
+#ifdef COTTAGE_START //start definition
 
-//guard
-#ifndef COTTAGE_COT
+
+#ifndef COTTAGE_COT //guard
 #define COTTAGE_COT
 
 #include "tcpsetup_cot.h"

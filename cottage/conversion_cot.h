@@ -1,3 +1,9 @@
+/*
+Functions for converting between different variable types.
+
+Code is part of the cottage framework (https://github.com/vixthevix/cottage)
+*/
+
 #ifndef CONVERSION_COT
 #define CONVERSION_COT
 
@@ -6,10 +12,17 @@
 #include "sitevar_cot.h"
 #include "init_cot.h"
 
-
+/*
+Inserts a character at an index of a string.
+WARNING: THIS IS AN UNSAFE FUNCTION. 
+Ensure exp has enough allocated space to safely use this function.
+@arg exp -> string to add character to.
+@arg i -> index to put character at.
+@arg c -> character to insert.
+*/
 void BC_putAt(char* exp, int i, char c) {
 	cottageCheck();
-	if (i < 0) return;
+	if (i < 0 || !exp || i >= strlen(exp)) return;
 	
 	//shift everything up 1
 	for (int j = strlen(exp); j > i; j--) {
@@ -19,44 +32,53 @@ void BC_putAt(char* exp, int i, char c) {
 
 }
 
+/*
+Deletes a character at an index of a string.
+@arg exp -> string to delete character from.
+@arg i -> index to delete character at.
+*/
 void BC_delAt(char* exp, int i) {
 	cottageCheck();
-	if (i < 0 || i >= strlen(exp)) return;
+	if (i < 0 || !exp || i >= strlen(exp)) return;
 	
 	//shift everything up 1
 	int n = strlen(exp);
 	for (int j = i; j < strlen(exp); j++) {
 		exp[j] = exp[j + 1];
 	}
+	//In this way, the character at i is overwritten and thus deleted
 }
 
-bool BC_isDoubleOperator(char c) {
-	cottageCheck(false);
-	return (c == '=' || c == '&' || c == '|' || c == '^'); //special case for ! potentially
-}
-
+/*
+Checks if contents of string matches form of a uint_cot.
+@arg exp -> string to check.
+@return status of check.
+*/
 bool BC_isUInt(char* exp) {
 	cottageCheck(false);
-	uint64_t number = 0, digitCount = 0;
+	if (!exp || strlen(exp) == 0) return false;
 
-	const uint64_t 
-	uintMax = UINT64_MAX,
-	digitMax = ((uint64_t)log10(uintMax)) + 1;
+	// const uint64_t 
+	// uintMax = UINT64_MAX,
+	// digitMax = ((uint64_t)log10(uintMax)) + 1;
 
     for (int i = 0; i < strlen(exp); i++) {
         int digit = exp[i] - '0';
         if (0 <= digit && digit <= 9) continue;
         else return false;
-		//number = (number * 10) + (uint64_t)digit;
-		//digitCount++;
-
-		//if (digitCount > digitMax || number > uintMax) return false;
     }
     return true;
 }
 
+
+/*
+Extracts a uint_cot from a string.
+@arg exp -> string to extract from.
+@return data in string.
+*/
 uint_cot BC_StrToUInt(char* exp) {
 	cottageCheck(0);
+	if (!exp || strlen(exp) == 0) return 0;
     uint_cot number = 0;
     int mult = 1;
     for (int i = 0; i < strlen(exp); i++) {
@@ -69,13 +91,15 @@ uint_cot BC_StrToUInt(char* exp) {
 
 }
 
-//with negatives, enforcing only one negative sign at the front
-//if issues arise, change to trailing negatives at the front check
+/*
+Checks if contents of string matches form of an int_cot.
+@arg exp -> string to check.
+@return status of check.
+*/
 bool BC_isInt(char* exp) {
 	cottageCheck(false);
-    //perform a check for a solitary negative sign
-	//if (exp[0] == '-' && exp[1] == 0) return false;
-	if (!strcmp(exp, "-")) return false;
+	if (!exp || strlen(exp) == 0) return false;
+	if (strcmp(exp, "-") == 0) return false;
 	
 	for (int i = 0; i < strlen(exp); i++) {
 		char c = exp[i];
@@ -89,9 +113,16 @@ bool BC_isInt(char* exp) {
     return true;
 }
 
-int64_t BC_StrToInt(char* exp) {
+/*
+Extracts an int_cot from a string.
+@arg exp -> string to extract from.
+@return data in string.
+*/
+int_cot BC_StrToInt(char* exp) {
 	cottageCheck(0);
-    int64_t number = 0;
+	if (!exp || strlen(exp) == 0) return 0;
+    
+	int_cot number = 0;
     int mult = 1;
 	bool isNegative = false;
     for (int i = 0; i < strlen(exp); i++) {
@@ -101,22 +132,24 @@ int64_t BC_StrToInt(char* exp) {
 			isNegative = true;
 			continue;
 		}
-		//if (i != 0 && c == '-') return 0; //error
         
+		number *= 10;
 		number += ((c - '0') * mult);
-        number *= 10;
     }
-    number /= 10;
+	
 	if (isNegative) number *= -1;
     return number;
-
 }
 
 
-// float x = -.;
-
+/*
+Checks if contents of string matches form of a float_cot.
+@arg exp -> string to check.
+@return status of check.
+*/
 bool BC_isFloat(char* exp) {
 	cottageCheck(false);
+	if (!exp || strlen(exp) == 0) return 0;
 	if ((!strcmp(exp, "-")) || (!strcmp(exp, ".")) || (!strcmp(exp, "-.")) || (!strcmp(exp, ".-"))) return false;
 
     bool pointFound = false;
@@ -136,12 +169,19 @@ bool BC_isFloat(char* exp) {
     return true;
 }
 
-double BC_StrToFloat(char* exp) {
+/*
+Extracts a float_cot from a string.
+@arg exp -> string to extract from.
+@return data in string.
+*/
+float_cot BC_StrToFloat(char* exp) {
 	cottageCheck(0);
-    double number = 0;
-	double pointTrail = 0;
+	if (!exp || strlen(exp) == 0) return 0;
+
+    float_cot number = 0;
+	float_cot pointTrail = 0;
     int mult = 1;
-	double div = 10;
+	float_cot div = 10;
 	bool isNegative = false;
 	bool pointFound = false;
     for (int i = 0; i < strlen(exp); i++) {
@@ -155,119 +195,101 @@ double BC_StrToFloat(char* exp) {
 			pointFound = true;
 			continue;
 		}
-		//if (i != 0 && c == '-') return 0; //error
         
 		if (!pointFound) {
-			number += ((c - '0') * mult);
 			number *= 10;
+			number += ((c - '0') * mult);
 		}
 		else {
-			//we have to convert this digit over to a number
-			//divide it by div
-			//then add it on to number
 			double digit = (c - '0') / div;
 			pointTrail += digit;
 			div *= 10;
 		}
     }
-    number /= 10;
 	number += pointTrail;
 	if (isNegative) number *= -1;
     return number;
-
 }
 
-bool BC_isChar(char* exp) {
-	cottageCheck(false);
-	//must check apostrophe bounds, and a character length of 3
-	if (strlen(exp) == 3 && exp[0] == '\'' && exp[2] == '\'') return true;
-	else return false;
-}
-
-char BC_StrToChar(char* exp) {
-	cottageCheck(0);
-	if (!exp || strlen(exp) != 3) return 0;
-	return exp[1];
-}
-
+/*
+Checks if contents of string matches form of a string_cot.
+@arg exp -> string to check.
+@return status of check.
+*/
 bool BC_isString(char* exp) {
 	cottageCheck(false);
-	if (!exp) return false;
-	//must check quotation bounds and thats it
+	if (!exp || strlen(exp) < 2) return false;
 	size_t len = strlen(exp);
 	if (exp[0] == '"' && exp[len - 1] == '"') return true;
 	else return false;
 }
 
-char* BC_StrToStr(char* exp) {
+/*
+Extracts a string_cot from a string.
+@arg exp -> string to extract from.
+@return data in string.
+*/
+string_cot BC_StrToStr(char* exp) {
 	cottageCheck(NULL);
 	if (!exp) return NULL;
 	//just strip the border quotes
-	char* new = (char*) malloc(strlen(exp) + 1);
+	string_cot new = (string_cot) malloc(strlen(exp) + 1);
 	strcpy(new, exp);
 	BC_delAt(new, 0);
 	BC_delAt(new, strlen(new) - 1);
 	return new;
 }
 
+/*
+Checks if contents of string matches form of a bool_cot.
+@arg exp -> string to check.
+@return status of check.
+*/
 bool BC_isBool(char* exp) {
 	cottageCheck(false);
-	if (!exp) return false;
-	return (!strcmp(exp, "true") || !strcmp(exp, "false"));
+	if (!exp || strlen(exp) == 0) return false;
+	return ((strcmp(exp, "true") == 0) || (strcmp(exp, "false") == 0));
 }
 
-bool BC_StrToBool(char* exp) {
+/*
+Extracts a bool_cot from a string.
+@arg exp -> string to extract from.
+@return data in string.
+*/
+bool_cot BC_StrToBool(char* exp) {
 	cottageCheck(false);
-	if (!exp) return false;
+	if (!exp || strlen(exp) == 0) return false;
 	if (!strcmp(exp, "true")) return true;
 	else if (!strcmp(exp, "false")) return false;
 
-	//uhhhh sure
 	return false;
 }
 
-
-// int BC_StrToNum(char* exp) {
-//     int number = 0;
-//     int mult = 1;
-//     for (int i = 0; i < strlen(exp); i++) {
-//         char c = exp[i];
-//         number += ((c - '0') * mult);
-//         number *= 10;
-//     }
-//     number /= 10;
-//     return number;
-
-// }
+//Defines a number that all of cottage's numerical types
+//can be type casted into.
+typedef double generalNumber;
 
 /*
-If this works, it may help solve the issue of a billion types
-just add comparison type checks here!
+Converts a siteVar's contents into a generalNumber.
+@arg input -> stores result of conversion.
+@arg type -> data type of siteVar to convert.
+@arg val -> data container of siteVar to convert.
 */
-
-#define generalNumber double
-
 cotResult BC_siteVarToNumber(generalNumber* input, VARTYPE type, void* val) {
-	// cottageCheck((cotResult){0});
+	cottageCheck(newResultError("BC_siteVarToNumber: cottage not initialised."));
 	switch (type) {
-		// case INT64:  {
-		// 	return (generalNumber)(*((int64_t*)val));
-		// }
 		case INT:  {
             int_cot raw_val = *((int_cot*)val);
-            // Print the pointer address, the exact 64-bit integer, and the casted double
 			*input = (generalNumber)raw_val;	
 		    break;
         }
         case UINT: {
             uint_cot raw_val = *((uint_cot*)val);
-            // Print the pointer address, the exact 64-bit integer, and the casted double
 			*input = (generalNumber)raw_val;	
 		    break;
 		}
-        case FLOAT: { //used to be DOUBLE
+        case FLOAT: {
             double raw_val = *((double*)val);
-            // Print the pointer address, the exact 64-bit integer, and the casted double
 			*input = (generalNumber)raw_val;	
 		    break;
 		}
@@ -279,6 +301,11 @@ cotResult BC_siteVarToNumber(generalNumber* input, VARTYPE type, void* val) {
 	return newResultOK();
 }
 
+/*
+Checks for the type of a string.
+@arg exp -> string to check.
+@return type of string.
+*/
 VARTYPE BC_StrToType(char* exp) {
 	cottageCheck(ERROR);
 	if (BC_isUInt(exp)) return UINT;
@@ -290,76 +317,40 @@ VARTYPE BC_StrToType(char* exp) {
 	return ERROR; //no type found for this
 }
 
-// void* BC_StrToData(char* exp) {
-// 	VARTYPE type = BC_StrToType(exp);
-
-
-
-// 	switch (type) {
-// 		case UINT: {
-
-// 			break;
-// 		}
-// 		case UINT: {
-// 			break;
-// 		}
-// 		case UINT: {
-// 			break;
-// 		}
-// 		case UINT: {
-// 			break;
-// 		}
-// 		case UINT: {
-// 			break;
-// 		}
-// 		default: {
-// 			return NULL;
-// 			break;
-// 		}
-// 	}
-// }
-
 /*
-	must now perform variable analysis.
-	var => just the variable
-	var[i] => item at index i. only works for non-composite arrays
-	var.subvar => variable stored inside composite. 
-	can be subvar.subsubvar or subvar[i] or just subvar, you get the idea
-	
-	BUT NOT subvar[i].subsubvar, because this assumes that
-	subvar[i] is a composite, meaning that subvar must be a composite.
-	composites can only ever come from composites.
-	and since i personally blocked off composites from using accessAt,
-	we should account for this.
-
-	As a result, we must check for square brackets and get the value inside
-	and (when not in square brackets) for a dot, to denote a subvar
-
-	actually, an issue with square brackets is, while yes there can be a number inside
-	there can also be another variable inside with an integer value.
-	as a result, this function must be recursive
+Retrieves siteVar data from variables, given a string to read the variable from.
+@arg input -> stores the target siteVar.
+@arg exp -> the string to read from.
+@arg variables -> where to look for target siteVar.
+@arg originalVariables -> used to allow for proper recursion.
+@return error status of retrieval.
 */
 cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteVar* originalVariables) {
-	//cottageCheck(NULL);
+	cottageCheck(newResultError("BC_StrToVariable: cottage not initialised."));
+	
+	//current part of variable we are checking.
 	char* var = (char*)calloc(strlen(exp) + 1, sizeof(char));
 	bool inBrackets = false;
+	
 	size_t i = 0;
 	for (; i < strlen(exp); i++) {
 		char c = exp[i];
 
 
 		if (c == '.') {
-			//copy over the rest of the string
-			//load it into strToVariable, with variables being
-			//GetVar of var
+			//'.' means 
+			//"treat the variable before the dot as a COMPOSITE,
+			//and the variable after as a subvariable of this COMPOSITE"
+
 			char* remainder = (char*)calloc(strlen(exp) + 1, sizeof(char));
-			//perform bounds check here
 			for (size_t j = i + 1, k = 0; j < strlen(exp); j++, k++) {
 				remainder[k] = exp[j];
 			}
 
 			siteVar* compositeVars = siteVarCompositeAccess(variables, var);
 			siteVar* returnVal = NULL;
+			
+			//recursion
 			cotResult returnValResult = BC_StrToVariable(&returnVal, remainder, compositeVars, originalVariables);
 			if (returnValResult.status == COT_ERROR) {
 				siteVarFree(compositeVars);
@@ -377,10 +368,8 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 			return newResultOK();
 		}
 		else if (c == '[') {
-			//keep count of number of brackets seen.
-			//the thing in between the brackets must be
-			//either whole positive number (base)
-			//or another variable (recursive)
+			//Square brackets indicate accessing an item in an array.
+
 			char* bracketVar = (char*)calloc(strlen(exp) + 1, sizeof(char));
 			int16_t bracketCount = 0;
 			i++;
@@ -399,32 +388,19 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 				}
 			}
 
-			//now, we must perform a check
-			//first check for invalid data types
-			//strings, floats, booleans, characters
-			//for ints, no need, can convert to 
-			//technically speaking, bugged with floats,
-			//as you can have a whole number float with a decimal spot in there,
-			//but this is a fix for later
-
 			siteVar* x = siteVarCompositeAccess(variables, var);
-			//if x is a composite, we cannot perform accessAt with it.
-			//so the statement is invalid.
-			//return NULL and do some clean up
 			if (!x || (x && x->type == COMPOSITE)) {
-				
 				siteVarFree(x);
 				free(var);
 				free(bracketVar);
 				if (x) return newResultError("BC_StrToVariable: trying to access an index of a COMPOSITE siteVar");
 				else return newResultError("BC_StrToVariable: could not find variable within known variables");
-				//return NULL;
 			}
 
 			
 			if (BC_isUInt(bracketVar)) {
-				//we have an index, so convert it to a number
-				//and pop it in
+				//Treat bracketVar as a numerical index.
+
 				uint64_t index = BC_StrToUInt(bracketVar);
 
 				void* data = siteVarAccessAt(x, index);
@@ -434,7 +410,7 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 					free(bracketVar);
 					return newResultError("BC_StrToVariable: could not access data in siteVar with UINT index");
 				}
-				siteVar* new = siteVarInit("", x->type, 1, data);
+				siteVar* new = siteVarInit("arrayitem", x->type, 1, data);
 				free(data);
 				siteVarFree(x);
 				free(var);
@@ -442,9 +418,9 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 				*input = new;
 				return newResultOK();
 			}
-			else { //the thing inside is a variable
-				//we kinda have to hope this is a number
-				//we will use originalVariables to get stuff
+			else {
+				//Treat bracketVar as a variable.
+				
 				siteVar* indexVar = NULL;
 				cotResult indexVarResult = BC_StrToVariable(&indexVar, bracketVar, originalVariables, originalVariables);
 				if (indexVarResult.status == COT_ERROR) {
@@ -461,10 +437,6 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 					free(bracketVar);
 					return newResultError("BC_StrToVariable: indexVar found, but of invalid type (either STRING or BOOL)");
 				}
-				//make sure its a number aka not a string or boolean, but doubles ill allow?
-				// if (indexVar->type == STRING || indexVar->type == BOOL) {
-
-				// }
 
 				void* indexData = siteVarAccess(indexVar);
 				if (!indexData) {
@@ -474,6 +446,7 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 					free(bracketVar);
 					return newResultError("BC_StrToVariable: could not access value inside indexVar");
 				}
+
 				generalNumber index = 0;
 				cotResult indexResult = BC_siteVarToNumber(&index, indexVar->type, indexData);
 				if (indexResult.status == COT_ERROR) {
@@ -484,6 +457,7 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 					free(bracketVar);
 					return newResultError("BC_StrToVariable: could not convert index into a number");
 				}
+
 				void* data = siteVarAccessAt(x, index);
 				if (!data) {
 					siteVarFree(indexVar);
@@ -493,8 +467,8 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 					free(bracketVar);
 					return newResultError("BC_StrToVariable: could not access data at index");
 				}
-				siteVar* new = siteVarInit("", x->type, 1, data);
-				
+
+				siteVar* new = siteVarInit("arrayitem", x->type, 1, data);
 				free(data);
 				siteVarFree(indexVar);
 				siteVarFree(x);
@@ -509,8 +483,7 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 		else var[i] = c;
 	}
 
-	//if the var was completely untouched, no brackets no dots no anything,
-	//just get the site var
+	//We have a complete var, so treat it as a siteVar name.
 	siteVar* returnVal =  siteVarCompositeAccess(variables, var);
 	free(var);
 	if (!returnVal) return newResultError("BC_StrToVariable: could not access simple var in variables");
@@ -519,9 +492,11 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 }
 
 
-
-//conversions from type to string, like itoa
-
+/*
+Puts an int_cot into string form.
+@arg target -> target to transform.
+@return target in string form.
+*/
 char* BC_IntToStr(int_cot target) {
 	cottageCheck(NULL);
 	
@@ -543,6 +518,11 @@ char* BC_IntToStr(int_cot target) {
     return buffer;
 }
 
+/*
+Puts a uint_cot into string form.
+@arg target -> target to transform.
+@return target in string form.
+*/
 char* BC_UIntToStr(uint_cot target) {
 	cottageCheck(NULL);
 	if (target == 0) {
@@ -558,7 +538,11 @@ char* BC_UIntToStr(uint_cot target) {
     return buffer;
 }
 
-//different number strategy
+/*
+Puts a float_cot into string form.
+@arg target -> target to transform.
+@return target in string form.
+*/
 char* BC_FloatToStr(float_cot target) {
 	cottageCheck(NULL);
     //to get the number of digits, use log base 10, truncate it, then add 1
@@ -569,6 +553,11 @@ char* BC_FloatToStr(float_cot target) {
     return buffer;
 }
 
+/*
+Puts an bool_cot into string form.
+@arg target -> target to transform.
+@return target in string form.
+*/
 char* BC_BoolToStr(bool_cot target) {
 	cottageCheck(NULL);
     char* buffer = (char*) calloc(5 + 1, sizeof(char)); //false has 5 characters
@@ -577,7 +566,13 @@ char* BC_BoolToStr(bool_cot target) {
     return buffer;
 }
 
-char* BC_VariableToString(siteVar* variable, size_t index) {
+/*
+Puts data at an index in a siteVar into string form.
+@arg variable -> siteVar to get data from.
+@arg index -> index of data.
+@return variable data in string form.
+*/
+char* BC_VariableToStringAt(siteVar* variable, size_t index) {
 	cottageCheck(NULL);
     if (!variable) return NULL;
 
@@ -612,17 +607,25 @@ char* BC_VariableToString(siteVar* variable, size_t index) {
 
 		}
         default: {
-			//we can maybe print to stderror anyway
 			newResultError("BC_VariableToString: variable is of an invalid type");
             return NULL;
         }
     }
 }
 
+//Wrapper around VariableToStringAt for 0 index.
+char* BC_VariableToString(siteVar* variable) {
+	return BC_VariableToStringAt(variable, 0);
+}
 
+/*
+Checks if contents of string matches form of array.
+@arg exp -> string to check.
+@return status of check.
+*/
 bool BC_isArray(char* exp) {
 	cottageCheck(false);
-    if (!exp) return false;
+    if (!exp || strlen(exp) < 2) return false;
     return (exp[0] =='[' && exp[strlen(exp) - 1] == ']');
 }
 
@@ -634,21 +637,28 @@ UINT, INT, FLOAT
 look out for the other types. if they appear, we throw an error.
 otherwise, we change the type of the array to fit what we have.
 */
+
+/*
+Converts an array in string form into a siteVar.
+@arg input -> stores created siteVar.
+@arg name -> name to give to created siteVar.
+@arg exp -> string to read array data from.
+@arg variables -> where to look for array data in (used if array data has variable names).
+@return error status of conversion.
+*/
 cotResult BC_ArrayToSiteVar(siteVar** input, char* name, char* exp, siteVar* variables) {
-	//cottageCheck(NULL);
+	cottageCheck(newResultError("BC_ArrayToSiteVar: cottage not initialised."));
 	//elements are divided by commas
 	//they cannot be arrays themselves.
 	//they must all be of the same type, with the first element as a reference point
 	//existing variables can exist here as well
 	//values separated by commas
+	
 	char arrayVar[512] = {0};
 
 	VARTYPE arrayType = ERROR;
 	bool typeFound = false;
 	siteVar* storage = NULL;
-
-	//we need some storage for each variable.
-	//make a void* container
 
 	size_t i = 1; //starting from not the bracket
 	size_t explen = strlen(exp);
@@ -753,6 +763,5 @@ cotResult BC_ArrayToSiteVar(siteVar** input, char* name, char* exp, siteVar* var
 	*input = storage;
 	return newResultOK();
 }
-
 
 #endif
