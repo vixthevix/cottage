@@ -252,7 +252,6 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
             
 			//type checking done here
 			//everything must converge on varVal
-
 			if (BC_isUInt(value)) {
 				uint_cot number = BC_StrToUInt(value);
 				varVal = siteVarInit(varValName, UINT, 1, &number);

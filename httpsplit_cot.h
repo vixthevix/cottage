@@ -434,7 +434,7 @@ void* INTERNAL_StrToData(string_cot value, VARTYPE type) {
             break;
         }
         default: {
-            newResultError("offloadToVariables: variable is invalid");
+            newResultError("INTERNAL_StrToData: variable is invalid");
             return NULL;
         }
     }
@@ -449,7 +449,7 @@ Converts HTTP target offload into a COMPOSITE siteVar.
 siteVar* offloadToVariables(char* offload) {
     cottageCheck(NULL);
     if (!offload || strlen(offload) <= 0) {
-        newResultError("offloadToVariables: offload is invalid");
+        newResultError("offloadToVariables: offload is empty");
         return NULL;
     }
     

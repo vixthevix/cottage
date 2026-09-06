@@ -11,7 +11,7 @@ import os
 # We use the literal '%1$s' here so we can simply replace it later, 
 # which avoids having to escape all the curly braces { } in the template.
 FORMAT_STR = (
-    "#include \"../cottage.h\"\n"
+    "#include \"../cottage/cottage.h\"\n"
     "\n"
     "NewRouteFunction(%1$sGet) {\n"
     "   return false;\n"
@@ -54,12 +54,12 @@ def main():
     
     # make the routes folder
     try:
-        os.mkdir("../routes", 0o777)
+        os.mkdir("routes", 0o777)
     except OSError:
         print("Could not create routes folder (may already exist).")
         
     # print this into a file
-    filename = f"../routes/{name}_routes.h"
+    filename = f"routes/{name}_routes.h"
     try:
         with open(filename, "w") as file:
             file.write(contents)

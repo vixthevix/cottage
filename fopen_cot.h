@@ -890,21 +890,19 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
     goto success;
     
     failure:
-    free(data.data);
+    if (data.data) free(data.data);
     data.data = NULL;
 
     success:
-    fclose(file);
     free(offload);
     free(command);
     free(fullFile);
-    //qmapFree(newVariables);
 
     //ensure that the state indexes are where they should be
     if (curCondState != 0 || curLoopState != -1) {
         //failure
         newResultError("openHTML: conditional/loop state invalid");
-        free(data.data);
+        if (data.data) free(data.data);
         data.data = NULL;
     }
 
@@ -923,7 +921,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
             if (strList) free(strList);
         }
-        else free(loopStates[i].list);
+        else if (loopStates[i].list) free(loopStates[i].list);
     }
 
     if (data.data) {
@@ -953,7 +951,6 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
         newResultError("sendHTML: failed to open HTML file.");
         return false;
     }
-
     if (data) goto success;
     
     failure:

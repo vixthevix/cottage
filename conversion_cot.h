@@ -52,7 +52,7 @@ Ensure exp has enough allocated space to safely use this function.
 */
 void BC_putAt(char* exp, int i, char c) {
 	cottageCheck();
-	if (i < 0 || !exp || i >= strlen(exp)) return;
+	if (i < 0 || !exp) return;
 	
 	//shift everything up 1
 	for (int j = strlen(exp); j > i; j--) {
