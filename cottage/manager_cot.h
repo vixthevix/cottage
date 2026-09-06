@@ -1,13 +1,7 @@
 /*
-I think I will have cottage do things for you, behind the scenes, by default.
-At least, for now. I can always lock these things behind a define key.
+Functions and data for making cottage easier to use.
 
-What should cottage do for you?
-    manage the routemap
-    manage the stylesheet map
-    manage that assets map (images, video, sound etc.)
-put these into a separate file called "manager_cot.h"
-
+Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 */
 
 #ifndef MANAGER_COT 
@@ -29,19 +23,33 @@ put these into a separate file called "manager_cot.h"
 #include "stringmap_cot.h"
 #include "init_cot.h"
 
-/*
-    ROUTEMAP
-*/
+//Global default RouteMap 
 RouteMap* globalRoutes;// = RouteMapInit();
 #define GLOBALROUTES globalRoutes
 
+/*
+Adds a new route to the global RouteMap.
+@arg path -> name of route.
+@arg route -> encapsulated route functions.
+@return status of insert.
+*/
 bool newRoute(char* path, RouteEntry route) {
     return RouteMapInsert(&globalRoutes, path, route);
 }
+
+/*
+Gets a route from the global RouteMap.
+@arg path -> name of route.
+@return route functions associated with path.
+*/
 RouteEntry getRoute(char* path) {
     return RouteMapGet(globalRoutes, path);
 }
 
+/*
+Initialises cottage to work on all cottage-compatible platforms succesfully.
+@return status of init.
+*/
 bool cottageInit() {
     if (!cottageInitialised) {
         cottageInitialised = true;
@@ -52,33 +60,14 @@ bool cottageInit() {
     return false;
 }
 
-
-/*
-An alternative idea with style and asset storage.
-Do what NextJS does, and have a public folder.
-if, in the html, there is an href for "mystyle.css", 
-cottage will actually look inside "public/mystyle.css".
-this adds security, as we can strip all "." and ".." from the request resource
-and it will ensure everything is looked at in public.
-
-one issue, what if a file in public has the same name as a route?
-right now, the only solution I have is to enforce that every asset
-has a file extension, and that every route does not.
-this can easily be done with a "validate routes and assets" function,
-but yeah.
-
-i guess another way is to have a rule of priority: route checks happen first.
-this is the standard, and it would mean less boilerplate in the html and c code.
-
-*/
-
-/*
-    ASSET STORAGE FOLDER
-    its just a string really
-*/
-
+//Starting path of assets to be used with cottage.
 const char* globalAssetFolder = "./assets/";
 
+/*
+Prepends the globalAssetFolder string to a given path string.
+@arg path -> path string.
+@return new prepended path string. 
+*/
 char* prependAssetFolder(char* path) {
     cottageCheck(NULL);
     char* newPath = (char*) calloc(strlen(globalAssetFolder) + strlen(path) + 1, sizeof(char));
@@ -89,16 +78,22 @@ char* prependAssetFolder(char* path) {
     return newPath;
 }
 
-//we can also make a cleanup path function
-
+/*
+Makes a path safe to read a file from.
+@arg path -> unsafe path.
+@return cleaned up safe path.
+*/
 char* cleanupPath(char* path) {
     cottageCheck(NULL);
     if (!path) return NULL;
-    //we have to read the string until the next '/' character
-    //if equal to . or .., remove it
+    
+    //Path to build
     char* newPath = (char*) calloc(strlen(path) + 1, sizeof(char));
+    //Current part of path to analyze
     char* buffer = (char*) calloc(strlen(path) + 1, sizeof(char)); 
     
+    if (!buffer || !newPath) return NULL;
+
     size_t j = 0;
     for (size_t i = 0; i < strlen(path); i++) {
         if (path[i] == '/') {
@@ -129,35 +124,8 @@ char* cleanupPath(char* path) {
             else strcat(newPath, buffer);
         }
     }
-    free(buffer);
+    if (buffer) free(buffer);
     return newPath;
 }
-
-
-/*
-    STYLEMAP
-*/
-
-// stringMap* globalStyles = strMapInit();
-
-// int newStyle(char* path, char* name) {
-//     return strMapInsert(&globalStyles, name, path);
-// }
-// char* getStyle(char* key) {
-//     return strMapGet(globalStyles, key);
-// }
-
-// /*
-//     ASSETMAP
-// */
-
-// stringMap* globalAssets = strMapInit();
-
-// int newAsset(char* path, char* name) {
-//     return strMapInsert(&globalAssets, name, path);
-// }
-// char* getAsset(char* key) {
-//     return strMapGet(globalAssets, key);
-// }
 
 #endif

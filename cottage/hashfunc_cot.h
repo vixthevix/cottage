@@ -1,13 +1,23 @@
+/*
+Hashing function used for hashmaps.
+
+Code is part of the cottage framework (https://github.com/vixthevix/cottage)
+*/
+
 #ifndef HASHFUNC_COT
 #define HASHFUNC_COT
 
 #include "dependencies_cot.h"
 #include "init_cot.h"
 
-//will use djb2 hashing algorithm
-size_t stringHash(char* key) {
+/*
+Hash function, using djb2 algorithm.
+@arg key -> string key to hash.
+@return hash value.
+*/
+uint32_t stringHash(char* key) {
     cottageCheck(0);
-    unsigned int hash = 5381; //magic number
+    uint32_t hash = 5381; //magic number
     int c;
 
     while ((c = *key++)) //for each character in the string

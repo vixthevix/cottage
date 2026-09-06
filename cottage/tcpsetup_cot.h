@@ -1,3 +1,9 @@
+/*
+Code for setting up a multi-client server.
+
+Code is part of the cottage framework (https://github.com/vixthevix/cottage)
+*/
+
 #ifndef TCPSETUP_COT
 #define TCPSETUP_COT
 
@@ -8,8 +14,13 @@
 #include <stdint.h>
 #include <string.h>
 
-//structs and stuff for multi-user server
-
+/*
+Struct that holds data for polling multiple clients.
+@param init_fd -> file descriptor needed to init poll.
+@param sitter -> captures new clients to add to client list.
+@param clients -> list of clients to communicate with.
+@param maxClientCount -> max number of clients at a time.
+*/
 typedef struct CotPoll {
     int init_fd;
     struct epoll_event sitter;
@@ -17,22 +28,32 @@ typedef struct CotPoll {
     int maxClientCount;
 } CotPoll;
 
+/*
+Struct that holds data for setting up a cottage server.
+@param address -> address of server.
+@param port -> port of server.
+@param server_fd -> file descriptor of server socket.
+@param poll -> polling data for multi-client functionality.
+*/
 typedef struct ServerConfig {
     char address[50];
     char port[50];
-    uint32_t client_max;
     int server_fd;
     CotPoll poll;
 } ServerConfig;
 
 
-bool serverListen(int socketfd, int maxClientCount);
 void serverClose(ServerConfig* server);
 cotResult CotPollInit(CotPoll* input, int server_fd, int maxClientCount);
-bool CotPollClose(CotPoll list);
+void CotPollClose(CotPoll poll);
 void serverCloseClient(int clientfd);
 
 //helper function for making non-blocking socket
+/*
+Applies the non-blocking attribute to a file descriptor for reading data.
+@arg fd -> target to apply attribute to.
+@return status of apply.
+*/
 bool applyNonBlocking(int fd) {
     //get existing config flags
     int flags = fcntl(fd, F_GETFL, 0);
@@ -55,7 +76,12 @@ bool applyNonBlocking(int fd) {
 }
 
 
-//TCP stuff
+/*
+Initialises a TCP server.
+@arg address -> address of server.
+@arg port -> port of server.
+@arg client_max -> max number of clients at a time.
+*/
 ServerConfig* serverInit(const char* address, const char* port, uint32_t client_max) {
     cottageCheck(NULL);
     if (!port || strlen(port) <= 0) return NULL;
@@ -91,24 +117,24 @@ ServerConfig* serverInit(const char* address, const char* port, uint32_t client_
     //the last two parameters are for setting the change to true (1) ie yeah make the change 
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &((int){1}), sizeof(int)) <= -1) {
         freeaddrinfo(results);
+        close(fd);
         newResultError("serverInit: could not free input port.");
         return NULL;
     }
 
-    //now bind
     if (bind(fd, results->ai_addr, results->ai_addrlen) <= -1) {
         freeaddrinfo(results);
+        close(fd);
         newResultError("serverInit: could not bind server.");
         return NULL;
     }
 
-    //now we are done
+    //Done with results now.
     freeaddrinfo(results);
 
-    //to automate the process, we also set to listening and non blocking
-
-    if (!serverListen(fd, client_max)) {
+    if (listen(fd, client_max) <= -1) {
         close(fd);
+        newResultError("serverInit: failed to listen succesfully.");
         return NULL;
     }
 
@@ -126,31 +152,22 @@ ServerConfig* serverInit(const char* address, const char* port, uint32_t client_
     ServerConfig* target = (ServerConfig*)malloc(sizeof(ServerConfig));
     strncpy(target->address, address, 50);
     strncpy(target->port, port, 50);
-    target->client_max = client_max;
     target->server_fd = fd;
     target->poll = server_poll;
 
     return target;
 }
 
-bool serverListen(int socketfd, int maxClientCount) {
-    cottageCheck(false);
-    int status = listen(socketfd, maxClientCount);
-    if (status <= -1) {
-        newResultError("serverListen: failed to listen succesfully.");
-        return false;
-    }
-    return true;
-}
-
-//may change to one parameter only 
-//if client address specification really not needed
+/*
+Checks if a client is available to connect with.
+@arg server -> cottage server in use.
+@return file descriptor of client or -1.
+*/
 int serverAcceptClient(ServerConfig* server) {
     cottageCheck(-1);
     int fd = accept(server->server_fd, NULL, NULL); 
     if (fd <= -1) newResultError("serverAcceptClient: failed to accept client.");
-
-    if (!applyNonBlocking(fd)) {
+    else if (!applyNonBlocking(fd)) {
         serverCloseClient(fd);
         return -1;
     }
@@ -158,6 +175,11 @@ int serverAcceptClient(ServerConfig* server) {
     return fd;
 }
 
+/*
+Reads data sent by client.
+@arg clientfd -> file descriptor of client.
+@return dynamically created buffer with client data. 
+*/
 char* serverRecvClient(int clientfd) {
     cottageCheck(NULL);
     const int bufferSize = 2048;
@@ -172,13 +194,20 @@ char* serverRecvClient(int clientfd) {
     }
 }
 
+/*
+Gracefully closes a client connection.
+@arg clientfd -> file descriptor of client.
+*/
 void serverCloseClient(int clientfd) {
     cottageCheck();
-    //clientreqfree(request);
     shutdown(clientfd, SHUT_WR);
     close(clientfd); //end current interraction
 }
 
+/*
+Gracefully closes a server and frees it from memory.
+@arg server -> cottage server to close.
+*/
 void serverClose(ServerConfig* server) {
     cottageCheck();
     if (!server) return;
@@ -186,9 +215,15 @@ void serverClose(ServerConfig* server) {
     CotPollClose(server->poll);
 }
 
-
+/*
+Initialises a CotPoll object.
+@arg input -> stores created CotPoll.
+@arg server_fd -> server file descriptor, needed for setup.
+@arg maxClientCount -> max number of clients at time.
+@return error status of init.
+*/
 cotResult CotPollInit(CotPoll* input, int server_fd, int maxClientCount) {
-    //cottageCheck(target);
+    cottageCheck(newResultError("CotPollInit: cottage not initialised."));
 
     CotPoll target;
     memset(&target, 0, sizeof(CotPoll));
@@ -216,31 +251,56 @@ cotResult CotPollInit(CotPoll* input, int server_fd, int maxClientCount) {
     return newResultOK();
 } 
 
-int CotPollPoll(CotPoll list) {
-    return epoll_wait(list.init_fd, list.clients, list.maxClientCount, -1);
+/*
+Checks for number of clients waiting to be polled.
+@arg poll -> CotPoll to check.
+@return number of clients to be polled.
+*/
+int CotPollPoll(CotPoll poll) {
+    cottageCheck(0);
+    return epoll_wait(poll.init_fd, poll.clients, poll.maxClientCount, -1);
 }
 
-int CotPollAccess(CotPoll list, int index) {
-    if (index < 0 || index >= list.maxClientCount) return -1;
-    return list.clients[index].data.fd;
+/*
+Accesses a client fd in a polling list.
+@arg poll -> CotPoll to access.
+@arg index -> index to access poll data at.
+@return fd of client at index.
+*/
+int CotPollAccess(CotPoll poll, int index) {
+    cottageCheck(-1);
+    if (index < 0 || index >= poll.maxClientCount) return -1;
+    return poll.clients[index].data.fd;
 }
 
-bool CotPollPush(CotPoll list, int clientfd) {
-    list.sitter.events = EPOLLIN;
-    list.sitter.data.fd = clientfd;
-    epoll_ctl(list.init_fd, EPOLL_CTL_ADD, clientfd, &list.sitter);
-    return true;
+/*
+Pushes a client fd into the poll data.
+@arg poll -> CotPoll to push data onto.
+@arg clientfd -> client file descriptor to push.
+*/
+void CotPollPush(CotPoll poll, int clientfd) {
+    cottageCheck();
+    poll.sitter.events = EPOLLIN;
+    poll.sitter.data.fd = clientfd;
+    epoll_ctl(poll.init_fd, EPOLL_CTL_ADD, clientfd, &poll.sitter);
 }
 
-bool CotPollPop(CotPoll list, int clientfd) {
-    epoll_ctl(list.init_fd, EPOLL_CTL_DEL, clientfd, NULL);
-    return true;
+/*
+Removes a client fd from a poll.
+@arg poll -> CotPoll to remove data from.
+@arg clientfd -> client file descriptor to remove.
+*/
+void CotPollPop(CotPoll poll, int clientfd) {
+    epoll_ctl(poll.init_fd, EPOLL_CTL_DEL, clientfd, NULL);
 }
 
-bool CotPollClose(CotPoll list) {
-    close(list.init_fd);
-    if (list.clients) free(list.clients);
-    return true;
+/*
+Gracefully closes and frees a CotPoll.
+@arg poll -> CotPoll to close.
+*/
+void CotPollClose(CotPoll poll) {
+    close(poll.init_fd);
+    if (poll.clients) free(poll.clients);
 }
 
 #endif

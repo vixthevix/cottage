@@ -1,3 +1,9 @@
+/*
+Functions for splitting a HTTP request, and routing.
+
+Code is part of the cottage framework (https://github.com/vixthevix/cottage)
+*/
+
 #ifndef HTTPSPLIT_COT
 #define HTTPSPLIT_COT
 
@@ -41,8 +47,12 @@ but thats pretty much it
 siteVar* offloadToVariables(char* offload);
 
 
-//rename ERROR if conflicts with other enum types
 
+/*
+Converts HTTP request type string into enum value.
+@arg data -> HTTP request type in string form.
+@return HTTP request type in enum form.
+*/
 HTTPTYPE StrToHTTPTYPE(char* data) {
     cottageCheck(UNKNOWN);
     if (!data) return UNKNOWN;
@@ -60,6 +70,11 @@ HTTPTYPE StrToHTTPTYPE(char* data) {
     return UNKNOWN;
 }
 
+/*
+Converts HTTP version string into enum value.
+@arg data -> HTTP version in string form.
+@return HTTP version in enum form.
+*/
 float StrToHttpVersion(char* data) {
     cottageCheck(0);
     if (!data) return UNKNOWN;
@@ -74,24 +89,35 @@ float StrToHttpVersion(char* data) {
 
 }
 
-bool HttpRequestFree(HttpRequest request) {
-    cottageCheck(false);
+/*
+Frees HttpRequest from memory.
+@arg request -> target to free.
+*/
+void HttpRequestFree(HttpRequest request) {
+    cottageCheck();
     if (request.target) free(request.target);
     if (request.options) strMapFree(request.options);
     if (request.payload) free(request.payload);
-
-    return true;
 }
 
+/*
+Checks if a HttpRequest is valid for interpreting.
+@arg request -> target to analyze.
+@return if valid.
+*/
 bool HttpRequestValid(HttpRequest request) {
     cottageCheck(false);
     return (request.target && request.options && (request.type > UNKNOWN) && (request.version > -1));
 }
 
-
-
-
+/*
+Reads a HTTP request in string form, and stores in HttpRequest.
+@arg input -> stores new HttpRequest.
+@arg data -> HTTP request in string form.
+@return error status of split/
+*/
 cotResult splitHttpRequest(HttpRequest* input, char* data) {
+    cottageCheck(newResultError("splitHttpRequest: cottage not initialised."));
     if (!input) return newResultError("splitHttpRequest: input is empty");
     HttpRequest error = {
         .target = NULL,
@@ -100,8 +126,6 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
         .version = -1,
         .type = UNKNOWN
     };
-    //cottageCheck(error);
-
 
     HttpRequest request = {
         .target = NULL,
@@ -116,8 +140,9 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
         *input = error;
         return newResultError("splitHttpRequest: data is invalid");
     }
-    //first line has type, target and version, separated by spaces
 
+    //First line has type, target and version, separated by spaces.
+    //Request lines also end with \r\n
     char buffer[512] = {0};
     int bufferIndex = 0;
     int item = 0;
@@ -144,30 +169,22 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
             memset(buffer, 0, bufferIndex);
             bufferIndex = 0;
 
-            if (item > 1) break;
             item += 1;
+            if (item == 3) break; //got all 3 pieces of data from the line
         }
     }
 
-    //debugHttpRequest(request);
-
-    if ((data[dataIndex] == '\r' && data[dataIndex + 1] == '\n') || dataIndex >= dataLen) dataIndex += 2;
+    if ((data[dataIndex] == '\r' && data[dataIndex + 1] == '\n') || dataIndex >= dataLen) dataIndex += 2; //carriage return
     else {
         HttpRequestFree(request);
         *input = error;
         return newResultError("splitHttpRequest: data header is formatted incorrectly");
     }
 
-    //for the following, we have multiple lines.
+    //For the following, we have multiple lines.
     //option:value separated by colon, lines separted by \r\n
     //with a final \r\n
-    //we should treat this final \r\n as its own line, so we should check the beginning
-
-    //buffer is already zeroed
-
-    //enable the stringmap
-
-    //problem here
+    //We should treat this final \r\n as its own line, so we should check the beginning
 
     request.options = strMapInit();
 
@@ -179,10 +196,7 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
             if (!buffer[0]) { //is buffer empty?
                 break;
             }
-            dataIndex += 2;
-            //buffer now has option:value
-            //we can use strtok to get a substring up until a certain character
-            //...but honestly lets just use two different buffers here
+            dataIndex += 2; //skip \r\n
 
             char option[512] = {0};
             char value[512] = {0};
@@ -209,6 +223,8 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
             //now just insert them
             strMapInsert(&request.options, option, value);
             memset(buffer, 0, bufferIndex);
+            memset(value, 0, 512);
+            memset(option, 0, 512);
             bufferIndex = 0;
         }
     }
@@ -220,10 +236,10 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
         return newResultError("splitHttpRequest: data options are formatted incorrectly");
     }
 
-    //finally we have our offload
-    //just copy it over
-    //we may not have an offload, so keep that in mind
-    if (dataLen > dataIndex) {
+    //Finally we have our offload.
+    //Copy it over as it can be interpreted in different ways depending on request type.
+    //It can also be empty.
+    if (dataLen > dataIndex) { //Do we have enough space in the buffer for an offload?
         request.payload = (char*) malloc(dataLen - dataIndex + 1);
         memcpy(request.payload, data + dataIndex, dataLen - dataIndex);
         request.payload[strlen(request.payload)] = 0;
@@ -234,6 +250,11 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
     return newResultOK();
 }
 
+/*
+Converts a hexadecimal character in char form into its decimal integer counterpart.
+@arg hex -> hex character to convert.
+@return decimal integer counterpart.
+*/
 int hexToInt(char hex) {
     if ('0' <= hex && hex <= '9') return hex - '0';
     if ('a' <= hex && hex <= 'f') return hex - 'a' + 10; //a=10
@@ -241,17 +262,22 @@ int hexToInt(char hex) {
     return -1; //invalid 
 }
 
+/*
+Decodes the URL for a file into a cottage readable format.
+@arg offload -> raw URL string.
+@return decoded URL string.
+*/
 char* urlDecode(char* offload) {
+    cottageCheck(NULL);
+    //not sure if I should do a strlen check here.
     if (!offload) return NULL;
 
     char* decoded = (char*) calloc(strlen(offload) + 1, sizeof(char));
     size_t j = 0;
-    // char* readptr = offload;
-    // char* writeptr = offload;
 
     size_t i = 0;
     while (offload[i]) {
-        if (offload[i] == '%' && offload[i + 1] && offload[i + 2]) {
+        if (offload[i] == '%' && offload[i + 1] && offload[i + 2]) { //Special % format.
             //convert into hex
             int high = hexToInt(offload[i + 1]);
             int low = hexToInt(offload[i + 2]);
@@ -260,14 +286,10 @@ char* urlDecode(char* offload) {
 
                 decoded[j++] = byte;
                 i += 3;
-
-                // *writeptr = byte;
-                // readptr += 3;
-                // writeptr++;
                 continue;
             }
         }
-        else if (offload[i] == '+') {
+        else if (offload[i] == '+') { //Special space format.
             decoded[j++] = ' ';
             i++;
             continue;
@@ -275,58 +297,33 @@ char* urlDecode(char* offload) {
 
         //normal character
         decoded[j++] = offload[i++];
-        // *writeptr = *readptr;
-        // readptr++;
-        // writeptr++;
     }
     
     decoded = (char*)realloc(decoded, strlen(decoded) + 1);
     return decoded;
 }
 
-//now that we have a request split into necessary components, we can go in two ways.
-//one way is to let the programmer handle everything themselves, in a way that fits them.
-//another is to provide helper functions for each http request type, to make life easier.
-//i think ill go with the second option as it doesnt eliminate the first one,
-//and it makes the framework more approachable
-//for now, try not to use any options, just work with the target and payload
-
-
 /*
-a general handleRequest function
-will split the target into the link and its offload
-it will then look into the routeMap to get the specific route to take,
-based on the request.
-
-it is up to the programmer to decide what to do with the routes.
-though there are default handles you can use to help.
-
-a route function that points to null will do nothing.
-no "default" behaviour with null to prevent unintended behaviour,
-everything must be explicitly defined.
+Reads a HttpRequest and performs routing appropriately.
+@arg request -> encapsulated HTTP request.
+@arg clientfd -> client to send data to.
+@arg extraData -> external site variables for use.
+@arg routes -> route table to be checked.
 */
-
 bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteMap* routes) {
     cottageCheck(false);
     if (!HttpRequestValid(request) || !routes) return false;
 
-
+    //HTTP target is split into link and offload, separated by '?'
     char link[512] = {0};
     int index = 0;
-
     while (index < strlen(request.target) && request.target[index] != '?') {
         link[index] = request.target[index];
         index++;
     }
 
+    //Handle routing
     RouteEntry route = RouteMapGet(routes, link);
-    
-    //for now, nothing happens if NULL
-    //but maybe perform an error 405 method not allowed block
-
-    //decoding of '?' payload and request.payload is done in respective http functions
-
-
     switch (request.type) {
         case GET: {
             if (route.routeGet) {
@@ -362,8 +359,7 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
         }
     }
 
-    //if the request type is not valid, we look at the assets folder
-    //we clean up link, prepend the asset folder, and then check there
+    //If no routing occurred, treat the link as an asset request.
     char* linkDecode = urlDecode(link);
     char* linkClean = cleanupPath(linkDecode);
     char* linkAsset = prependAssetFolder(linkClean);
@@ -378,75 +374,73 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
         return false;
     }
 
-
     success:
     return true;
-
 }
 
+/*
+Converts data in string form into raw form.
+@arg value -> data in string form.
+@arg type -> type of data.
+@return raw data.
+*/
 void* INTERNAL_StrToData(string_cot value, VARTYPE type) {
-    if (type != ERROR) {
-        void* data = NULL;
-        char* strData = NULL; //for strings
-        switch (type) {
-            case UINT: {
-                data = malloc(sizeof(uint_cot));
-                memcpy(data, &((uint_cot){BC_StrToUInt(value)}), sizeof(uint_cot));
-                break;
-            }
-            case INT: {
-                data = malloc(sizeof(int_cot));
-                memcpy(data, &((int_cot){BC_StrToInt(value)}), sizeof(int_cot));
-                break;
-            }
-            case FLOAT: {
-                data = malloc(sizeof(float_cot));
-                memcpy(data, &((float_cot){BC_StrToFloat(value)}), sizeof(float_cot));
-                break;
-            }
-            case STRING: {
-                strData = BC_StrToStr(value);
-                if (strData)
-                {
-                    data = malloc(sizeof(string_cot));
-                    memcpy(data, &strData, sizeof(string_cot));
-                    //free(strData);
-                }
-                break;
-            }
-            case BOOL: {
-                data = malloc(sizeof(bool_cot));
-                memcpy(data, &((bool_cot){BC_StrToBool(value)}), sizeof(bool_cot));
-                break;
-            }
-            default: {
-                newResultError("offloadToVariables: variable is invalid");
-                return NULL;
-            }
-        }
+    cottageCheck(NULL);
+    if (!value || strlen(value) == 0) return NULL;
+    if (type == ERROR) return NULL;
 
-        //if (strData) free(strData);
-        return data;
+    void* data = NULL;
+    char* strData = NULL; //for strings
+    switch (type) {
+        case UINT: {
+            data = malloc(sizeof(uint_cot));
+            memcpy(data, &((uint_cot){BC_StrToUInt(value)}), sizeof(uint_cot));
+            break;
+        }
+        case INT: {
+            data = malloc(sizeof(int_cot));
+            memcpy(data, &((int_cot){BC_StrToInt(value)}), sizeof(int_cot));
+            break;
+        }
+        case FLOAT: {
+            data = malloc(sizeof(float_cot));
+            memcpy(data, &((float_cot){BC_StrToFloat(value)}), sizeof(float_cot));
+            break;
+        }
+        case STRING: {
+            strData = BC_StrToStr(value);
+            if (strData)
+            {
+                data = malloc(sizeof(string_cot));
+                memcpy(data, &strData, sizeof(string_cot));
+                //free(strData);
+            }
+            break;
+        }
+        case BOOL: {
+            data = malloc(sizeof(bool_cot));
+            memcpy(data, &((bool_cot){BC_StrToBool(value)}), sizeof(bool_cot));
+            break;
+        }
+        default: {
+            newResultError("offloadToVariables: variable is invalid");
+            return NULL;
+        }
     }
-    else return NULL;
+    return data;
 }
 
-//maybe include extraVariables here who knows
-//but this will involve some encoding
+/*
+Converts HTTP target offload into a COMPOSITE siteVar.
+@arg offload -> HTTP target offload.
+@return COMPOSITE siteVar.
+*/
 siteVar* offloadToVariables(char* offload) {
     cottageCheck(NULL);
     if (!offload || strlen(offload) <= 0) {
         newResultError("offloadToVariables: offload is invalid");
         return NULL;
     }
-
-    //before starting, we need to format our offload.
-    //it has weird symbols, particularily with strings
-    //so lets change this
-    
-    // offload = urlDecode(offload);
-    
-    //look for equals and question marks
     
     char key[512] = {0};
     char value[512] = {0};
@@ -496,6 +490,7 @@ siteVar* offloadToVariables(char* offload) {
                         siteVar* array = NULL;
                         if (BC_ArrayToSiteVar(&array, key, value, NULL).status == COT_OK) {
                             siteVarCompositeInsert(&variables, array);
+                            siteVarFree(array);
                         }
                     }
                     else {
@@ -508,9 +503,8 @@ siteVar* offloadToVariables(char* offload) {
                     }
 
                     //alternatively, we can interprete this as a string,
-                    //but feels kind of weird
+                    //but feels kind of weird, let kutaj decide
                 }
-                //after inserting, we must clear our key and value
                 memset(key, 0, strlen(key));
                 memset(value, 0, strlen(value));
                 index = 0;
@@ -527,6 +521,7 @@ siteVar* offloadToVariables(char* offload) {
         }
     }
     
+    //Do we have any data left to insert?
     if (state == true && strlen(key) > 0 && strlen(value) > 0) {
         //we have to get the type of our data, then insert it
         //key remains the same
@@ -548,6 +543,7 @@ siteVar* offloadToVariables(char* offload) {
                 siteVar* array = NULL;
                 if (BC_ArrayToSiteVar(&array, key, value, NULL).status == COT_OK) {
                     siteVarCompositeInsert(&variables, array);
+                    siteVarFree(array);
                 }
             }
             else {
@@ -560,9 +556,8 @@ siteVar* offloadToVariables(char* offload) {
             }
 
             //alternatively, we can interprete this as a string,
-            //but feels kind of weird
+            //but feels kind of weird, let kutaj decide
         }
-        //after inserting, we must clear our key and value
         memset(key, 0, strlen(key));
         memset(value, 0, strlen(value));
         index = 0;
@@ -577,10 +572,13 @@ siteVar* offloadToVariables(char* offload) {
     return variables;
 }
 
-//handle request is good, but we can provide default functions for each type of request as well.
-//not all of them probably, but GET is a good start
-
-
+/*
+Standard response function to GET request.
+@arg request -> encapsulated HTTP request.
+@arg clientfd -> client to send data to.
+@arg extraVariables -> external site variables for use.
+@arg filePath -> file to send in response to request.
+*/
 bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath) {
     cottageCheck(false);
     if (!HttpRequestValid(request) || request.type != GET) return false;
@@ -598,6 +596,8 @@ bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char
     char* offloadClean = cleanupPath(offloadDecode);
 
     siteVar* offloadVars = offloadToVariables(offloadClean);
+    //In the case we have no offload
+    if (!offloadVars) offloadVars = siteVarInit("variables", COMPOSITE, 0, NULL);
     siteVarCompositeInsert(&offloadVars, extraVariables);
     
     bool state = sendFile(filePath, clientfd, offloadVars);
@@ -610,7 +610,5 @@ bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char
     
     return state;
 }
-
-
 
 #endif

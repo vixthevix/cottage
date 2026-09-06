@@ -14,6 +14,8 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "init_cot.h"
 #include "error_cot.h"
 
+bool BC_isDoubleOperator(char c);
+
 
 /*
 Formats string expression to be read correctly.

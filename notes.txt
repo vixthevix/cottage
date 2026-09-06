@@ -271,8 +271,7 @@ goals to complete before then:
 
         multi user scale (done)
         remove all printf (done)
-        add comments and clean up code and document
-        make INTERNAL functions static
+        add comments and clean up code and document (done)
         make somewhat of a proper README
         
         also, we kind of pushed the wrong thing to github. 
@@ -288,11 +287,19 @@ goals to complete before then:
             Things I ask kutaj to do:
                 Check for memory safety.
                 Rename functions and structs if appropriate.
-                Discuss if all numeric types should be boiled down to just NUMBER (replacing FLOAT).
+                Replace all size-vague data types with stdint equivalents
+                (e.g. 'int' -> 'int32_t')
+                Put more cotResults where necessary (newResult prints to stderr so yeah).
+                Fix up compiler warnings and errors.
+                Make functions static if needed.
                 Generally just review cottage and give me feedback.
                 tell him about TRY CATCH idea and how to implement it.
                 tell him about putting HTML cottage tags inside normal HTML tags.
                 kind of like <div id="{{VAR:x;"error"}}">
+            Things to discuss:
+                should we make hashmaps store copies of the data they are taking from (how it is now),
+                or store the input data itself (like composite insert reference)?
+                Discuss if all numeric types should be boiled down to just NUMBER (replacing FLOAT).
 
 
         implement error struct with

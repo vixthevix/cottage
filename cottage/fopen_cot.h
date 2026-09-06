@@ -13,7 +13,6 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "error_cot.h"
 #include "sitevar_cot.h"
 #include "init_cot.h"
-#include <cstdio>
 
 /*
 Sends a non-HTML file to a client.
@@ -109,10 +108,10 @@ bool dataVectorPush(dataVector* target, char c) {
 
 /*
 Struct to give information on current HTML IF statement shell.
-@part valid -> result of IF expression evaluation.
-@part ifAppeared -> IF statement appeared already?
-@part elseAppeared -> ELSE statement appeared already?
-@part chainSuccess -> signal for future ELSE-IF and ELSE to perform correctly.
+@param valid -> result of IF expression evaluation.
+@param ifAppeared -> IF statement appeared already?
+@param elseAppeared -> ELSE statement appeared already?
+@param chainSuccess -> signal for future ELSE-IF and ELSE to perform correctly.
 */
 typedef struct conditionalState {
     bool valid;
@@ -123,13 +122,13 @@ typedef struct conditionalState {
 
 /*
 Struct to give information on current HTML FOR statement shell.
-@part iterator -> current FOR variable.
-@part list -> data for iterator to read from.
-@part listType -> data type of list.
-@part count -> number of elements in list.
-@part cur -> current element to read in list.
-@part listComposite -> is the list actually a COMPOSITE? (unused)
-@part returnIndex -> return point in HTML file at end of FOR loop.
+@param iterator -> current FOR variable.
+@param list -> data for iterator to read from.
+@param listType -> data type of list.
+@param count -> number of elements in list.
+@param cur -> current element to read in list.
+@param listComposite -> is the list actually a COMPOSITE? (unused)
+@param returnIndex -> return point in HTML file at end of FOR loop.
 */
 typedef struct loopState {
     siteVar* iterator;

@@ -14,7 +14,9 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include <string.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <ctype.h>
 #include <math.h>
+
 
 //needed for error handling
 #include <time.h>
