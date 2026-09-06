@@ -10,6 +10,11 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "dependencies_cot.h"
 #include "init_cot.h"
 
+// Function prototypes
+uint32_t stringHash(char* key);
+
+#if defined(COTTAGE_START)
+
 /*
 Hash function, using djb2 algorithm.
 @arg key -> string key to hash.
@@ -26,4 +31,5 @@ uint32_t stringHash(char* key) {
     return hash;
 }
 
+#endif
 #endif

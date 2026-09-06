@@ -12,6 +12,36 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "sitevar_cot.h"
 #include "init_cot.h"
 
+//Defines a number that all of cottage's numerical types
+//can be type casted into.
+typedef double generalNumber;
+
+void BC_putAt(char* exp, int i, char c);
+void BC_delAt(char* exp, int i);
+bool BC_isUInt(char* exp);
+uint_cot BC_StrToUInt(char* exp);
+bool BC_isInt(char* exp);
+int_cot BC_StrToInt(char* exp);
+bool BC_isFloat(char* exp);
+float_cot BC_StrToFloat(char* exp);
+bool BC_isString(char* exp);
+string_cot BC_StrToStr(char* exp);
+bool BC_isBool(char* exp);
+bool_cot BC_StrToBool(char* exp);
+cotResult BC_siteVarToNumber(generalNumber* input, VARTYPE type, void* val);
+VARTYPE BC_StrToType(char* exp);
+cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteVar* originalVariables);
+char* BC_IntToStr(int_cot target);
+char* BC_UIntToStr(uint_cot target);
+char* BC_FloatToStr(float_cot target);
+char* BC_BoolToStr(bool_cot target);
+char* BC_VariableToStringAt(siteVar* variable, size_t index);
+char* BC_VariableToString(siteVar* variable);
+bool BC_isArray(char* exp);
+cotResult BC_ArrayToSiteVar(siteVar** input, char* name, char* exp, siteVar* variables);
+
+#if defined(COTTAGE_START)
+
 /*
 Inserts a character at an index of a string.
 WARNING: THIS IS AN UNSAFE FUNCTION. 
@@ -264,10 +294,6 @@ bool_cot BC_StrToBool(char* exp) {
 
 	return false;
 }
-
-//Defines a number that all of cottage's numerical types
-//can be type casted into.
-typedef double generalNumber;
 
 /*
 Converts a siteVar's contents into a generalNumber.
@@ -764,4 +790,5 @@ cotResult BC_ArrayToSiteVar(siteVar** input, char* name, char* exp, siteVar* var
 	return newResultOK();
 }
 
+#endif
 #endif

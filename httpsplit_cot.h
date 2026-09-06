@@ -44,9 +44,20 @@ but thats pretty much it
 #include <threads.h>
 #include <time.h>
 
+// Function prototypes
+HTTPTYPE StrToHTTPTYPE(char* data);
+float StrToHttpVersion(char* data);
+void HttpRequestFree(HttpRequest request);
+bool HttpRequestValid(HttpRequest request);
+cotResult splitHttpRequest(HttpRequest* input, char* data);
+int hexToInt(char hex);
+char* urlDecode(char* offload);
+bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteMap* routes);
+void* INTERNAL_StrToData(string_cot value, VARTYPE type);
 siteVar* offloadToVariables(char* offload);
+bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath);
 
-
+#if defined(COTTAGE_START)
 
 /*
 Converts HTTP request type string into enum value.
@@ -611,4 +622,5 @@ bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char
     return state;
 }
 
+#endif
 #endif

@@ -23,6 +23,15 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "stringmap_cot.h"
 #include "init_cot.h"
 
+// Function Prototypes
+bool newRoute(char* path, RouteEntry route);
+RouteEntry getRoute(char* path);
+bool cottageInit(void);
+char* prependAssetFolder(char* path);
+char* cleanupPath(char* path);
+
+#if defined(COTTAGE_START)
+
 //Global default RouteMap 
 RouteMap* globalRoutes;// = RouteMapInit();
 #define GLOBALROUTES globalRoutes
@@ -128,4 +137,5 @@ char* cleanupPath(char* path) {
     return newPath;
 }
 
+#endif
 #endif

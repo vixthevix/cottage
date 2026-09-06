@@ -29,6 +29,17 @@ typedef struct stringMap {
     unsigned int capacity;
 } stringMap;
 
+// Function prototypes
+stringPair* strPairInit(char* key, char* value);
+void strPairFree(stringPair* pair);
+stringMap* strMapNewSize(const unsigned int oldSize);
+stringMap* strMapInit(void);
+void strMapFree(stringMap* map);
+stringMap* strMapResize(stringMap* strMap);
+bool strMapInsert(stringMap** map, char* key, char* value);
+char* strMapGet(stringMap* map, char* key);
+
+#if defined(COTTAGE_START)
 
 /*
 Initialises a basic stringPair.
@@ -268,4 +279,5 @@ Unused stringMap combine function.
 //     return new;
 // }
 
+#endif
 #endif

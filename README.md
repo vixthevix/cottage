@@ -9,17 +9,16 @@ Before you can compile use cottage, run:
 
 - **Debian/Ubuntu/Mint**
   ```
-  apt install build-essential git
+  apt install build-essential git python
   ```
 - **Arch**
   ```
-  pacman -S base-devel git
+  pacman -S base-devel git python
   ```
 - **Fedora**
   ```
-  sudo dnf install @development-tools git
+  sudo dnf install @development-tools git python
   ```
-In other words, ensure you have a C compiler such as GCC or Clang to build the project, and git to clone into cottage.
 
 ### Including cottage
 
@@ -41,6 +40,13 @@ Assuming your main executable source is `main.c`:
   ```
   gcc main.c -o main -lm
   ```
+### cottage tools
+cottage comes with a `tools` folder, which holds Python scripts to help with making the framework easy to use.
+
+To run a script:
+```
+python cottage/tools/{SCRIPT NAME} {SCRIPT ARGUMENTS IF NEEDED}
+```
 
 ## More information
 ### Background

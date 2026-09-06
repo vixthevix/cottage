@@ -71,12 +71,31 @@ typedef siteVar* composite_cot;
 // #define INTCOT_MAX INT64_MAX
 // #define INTCOT_MAX INT64_MAX
 
-void siteVarFree(siteVar* target);
+// Function Prototypes
+siteVar* INTERNAL_siteVarCompositeNewSize(const size_t oldSize);
+bool siteVarCompositeInsert(siteVar** target, siteVar* var);
+bool siteVarCompositeInsertNew(siteVar** target, char* name, VARTYPE type, size_t size, void* data);
+bool siteVarCompositeInsertReference(siteVar** target, siteVar* var);
+siteVar* siteVarCompositeAccess(siteVar* target, char* name);
+siteVar* siteVarCompositeAccessReference(siteVar* target, char* name);
+bool siteVarCompositeDelete(siteVar** target, char* name);
+siteVar* siteVarCompositeCombine(siteVar* home, siteVar* intruder);
 siteVar* INTERNAL_siteVarCompositeResize(siteVar* target, bool increase);
-siteVar* siteVarInit(char* name, VARTYPE type, size_t size, void* data);
-void* siteVarAccess(siteVar* target);
+void INTERNAL_siteVarInitComposite(siteVar* target, void* data, size_t dataSize);
+bool INTERNAL_siteVarNameLegal(char* name);
+siteVar* siteVarInit(char* name, VARTYPE type, size_t elementCount, void* data);
 siteVar* siteVarClone(siteVar* target);
+void siteVarFree(siteVar* target);
 size_t INTERNAL_siteVarTypeSize(VARTYPE type);
+void* siteVarAccessRange(siteVar* target, size_t pointer, size_t stride);
+void* siteVarAccessAt(siteVar* target, size_t index);
+void* siteVarAccess(siteVar* target);
+bool siteVarUpdateRange(siteVar* target, uint16_t index, uint16_t range, void* data);
+bool siteVarUpdateAt(siteVar* target, uint16_t index, void* data);
+bool siteVarUpdate(siteVar* target, void* data);
+bool siteVarInsert(siteVar** target, void* data);
+
+#if defined(COTTAGE_START)
 
 /*
 Creates a COMPOSITE siteVar given an initial size.
@@ -730,4 +749,5 @@ bool siteVarInsert(siteVar** target, void* data) {
 
 }
 
+#endif
 #endif

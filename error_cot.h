@@ -23,6 +23,48 @@ typedef struct cotResult {
 } cotResult;
 
 /*
+The following enum and sendError function are used for HTTP error handling.
+This must be put into its own file, or into fopen_cot.h
+*/
+typedef enum ErrorType {
+    ERROR_400,
+    ERROR_401,
+    ERROR_402,
+    ERROR_404,
+    ERROR_405,
+    ERROR_406,
+    ERROR_408,
+    ERROR_409,
+    ERROR_410,
+    ERROR_411,
+    ERROR_412,
+    ERROR_413,
+    ERROR_414,
+    ERROR_415,
+    ERROR_416,
+    ERROR_417,
+    ERROR_418,
+    ERROR_421,
+    ERROR_422,
+    ERROR_423,
+    ERROR_424,
+    ERROR_425,
+    ERROR_426,
+    ERROR_428,
+    ERROR_429,
+    ERROR_431,
+    ERROR_451
+} ErrorType;
+
+// Function prototypes
+cotResult newResult(ErrorStatus status, const char message[256]);
+cotResult newResultOK(void);
+cotResult newResultError(const char message[256]);
+int sendError(int client, ErrorType error);
+
+#if defined(COTTAGE_START)
+
+/*
 Creates and logs a new error.
 @arg status -> error status.
 @arg message -> error message.
@@ -60,41 +102,6 @@ cotResult newResultError(const char message[256]) {
     return newResult(COT_ERROR, message);
 }
 
-
-/*
-The following enum and function are used for HTTP error handling.
-This must be put into its own file, or into fopen_cot.h
-*/
-typedef enum ErrorType {
-    ERROR_400,
-    ERROR_401,
-    ERROR_402,
-    ERROR_404,
-    ERROR_405,
-    ERROR_406,
-    ERROR_408,
-    ERROR_409,
-    ERROR_410,
-    ERROR_411,
-    ERROR_412,
-    ERROR_413,
-    ERROR_414,
-    ERROR_415,
-    ERROR_416,
-    ERROR_417,
-    ERROR_418,
-    ERROR_421,
-    ERROR_422,
-    ERROR_423,
-    ERROR_424,
-    ERROR_425,
-    ERROR_426,
-    ERROR_428,
-    ERROR_429,
-    ERROR_431,
-    ERROR_451
-} ErrorType;
-
 int sendError(int client, ErrorType error) {
     cottageCheck(0);
     switch (error) {
@@ -114,4 +121,5 @@ int sendError(int client, ErrorType error) {
     return 1;
 }
 
+#endif
 #endif

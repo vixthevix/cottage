@@ -15,6 +15,26 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "init_cot.h"
 
 /*
+Struct for dynamically storing and resizing a character array.
+*/
+typedef struct dataVector {
+    char* data;
+    uint32_t capacity;
+    uint32_t index;
+} dataVector;
+
+// Function prototypes
+bool sendNormal(char* filepath, char* type, int client);
+dataVector dataVectorInit(uint32_t capacity);
+bool dataVectorPush(dataVector* target, char c);
+cotResult openHTML(char** input, const char* filepath, siteVar* variables);
+bool sendHTML(const char* filepath, int client, siteVar* variables);
+bool sendFile(char* filepath, int client, siteVar* vars);
+bool sendRedirect(const char* path, int client);
+
+#if defined(COTTAGE_START)
+
+/*
 Sends a non-HTML file to a client.
 @arg filepath -> location of file to send.
 @arg type -> HTTP content type.
@@ -59,15 +79,6 @@ bool sendNormal(char* filepath, char* type, int client) {
 
     return true;
 }
-
-/*
-Struct for dynamically storing and resizing a character array.
-*/
-typedef struct dataVector {
-    char* data;
-    uint32_t capacity;
-    uint32_t index;
-} dataVector;
 
 /*
 Initialises a dataVector.
@@ -998,7 +1009,7 @@ Temporary function for sending a redirect message to a client.
 @client -> fd to send data to.
 @return status of send.
 */
-bool sendRediret(const char* path, int client) {
+bool sendRedirect(const char* path, int client) {
     cottageCheck(false);
     char response[512];
     int len = sprintf(response,
@@ -1012,4 +1023,5 @@ bool sendRediret(const char* path, int client) {
     return true;
 }
 
+#endif
 #endif

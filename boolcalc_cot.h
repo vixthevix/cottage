@@ -14,8 +14,14 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "init_cot.h"
 #include "error_cot.h"
 
+char* BC_format(char* expression);
+bool BC_isOperator(char c);
 bool BC_isDoubleOperator(char c);
+bool BC_isReadableValue(char c);
+char* BC_transform(const char* expression);
+cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables);
 
+#if defined(COTTAGE_START)
 
 /*
 Formats string expression to be read correctly.
@@ -440,4 +446,5 @@ cotResult BC_evaluate(bool* result, const char* expression, siteVar* variables) 
 
 
 
+#endif
 #endif

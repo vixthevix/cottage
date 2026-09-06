@@ -9,6 +9,8 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 
 #include "dependencies_cot.h"
 
+#if defined(COTTAGE_START)
+
 //Global variable for allowing all cottage functions to run.
 bool cottageInitialised = false;
 /*
@@ -17,4 +19,5 @@ Macro for checking if cottage has been initialised.
 */
 #define cottageCheck(returnVal) if (!cottageInitialised) return returnVal
 
+#endif
 #endif

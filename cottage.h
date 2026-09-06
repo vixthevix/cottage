@@ -4,12 +4,6 @@ Main cottage header to include in main code.
 Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 */
 
-//debug statement, remove from final code
-#define COTTAGE_START
-
-#ifdef COTTAGE_START //start definition
-
-
 #ifndef COTTAGE_COT //guard
 #define COTTAGE_COT
 
@@ -28,4 +22,3 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "init_cot.h"
 
 #endif //guard
-#endif //start definition

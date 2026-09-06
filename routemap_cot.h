@@ -30,6 +30,18 @@ typedef struct RouteMap {
     size_t capacity;
 } RouteMap;
 
+// Function prototypes
+RoutePair* RoutePairInit(char* key, RouteEntry route);
+void RoutePairFree(RoutePair* pair);
+RouteMap* RouteMapNewSize(const size_t oldSize);
+RouteMap* RouteMapInit(void);
+void RouteMapFree(RouteMap* map);
+RouteMap* RouteMapResize(RouteMap* map);
+bool RouteMapInsert(RouteMap** map, char* key, RouteEntry route);
+RouteEntry RouteMapGet(RouteMap* map, char* key);
+
+#if defined(COTTAGE_START)
+
 /*
 Initialises a basic RoutePair.
 @arg key -> string key of map.
@@ -204,4 +216,5 @@ RouteEntry RouteMapGet(RouteMap* map, char* key) {
     return error;
 }
 
+#endif
 #endif

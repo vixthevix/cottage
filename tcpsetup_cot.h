@@ -42,11 +42,21 @@ typedef struct ServerConfig {
     CotPoll poll;
 } ServerConfig;
 
-
+// Function Prototypes
+bool applyNonBlocking(int fd);
+ServerConfig* serverInit(const char* address, const char* port, uint32_t client_max);
+int serverAcceptClient(ServerConfig* server);
+char* serverRecvClient(int clientfd);
+void serverCloseClient(int clientfd);
 void serverClose(ServerConfig* server);
 cotResult CotPollInit(CotPoll* input, int server_fd, int maxClientCount);
+int CotPollPoll(CotPoll poll);
+int CotPollAccess(CotPoll poll, int index);
+void CotPollPush(CotPoll poll, int clientfd);
+void CotPollPop(CotPoll poll, int clientfd);
 void CotPollClose(CotPoll poll);
-void serverCloseClient(int clientfd);
+
+#if defined(COTTAGE_START)
 
 //helper function for making non-blocking socket
 /*
@@ -303,4 +313,5 @@ void CotPollClose(CotPoll poll) {
     if (poll.clients) free(poll.clients);
 }
 
+#endif
 #endif

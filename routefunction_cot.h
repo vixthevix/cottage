@@ -45,23 +45,6 @@ typedef struct HttpRequest {
 } HttpRequest;
 
 /*
-Debug display for a HTTP request.
-@arg request -> request to display.
-*/
-void debugHttpRequest(HttpRequest request) {
-    cottageCheck();
-    fprintf(stderr,
-        "REQUEST DEBUG\n"
-        "TARGET:%s\n"
-        "PAYLOAD:%s\n"
-        "VERSION:%f\n"
-        "TYPE:%i\n",
-        request.target, request.payload, request.version, request.type
-    );
-
-}
-
-/*
 Function prototype for a route function, which is code that executes
 depending on the request type acted upon a defined route.
 @arg request -> the HTTP request to get information from.
@@ -88,4 +71,27 @@ typedef struct RouteEntry {
     RouteFunction routeDelete;
 } RouteEntry;
 
+// Function prototypes
+void debugHttpRequest(HttpRequest request);
+
+#if defined(COTTAGE_START)
+
+/*
+Debug display for a HTTP request.
+@arg request -> request to display.
+*/
+void debugHttpRequest(HttpRequest request) {
+    cottageCheck();
+    fprintf(stderr,
+        "REQUEST DEBUG\n"
+        "TARGET:%s\n"
+        "PAYLOAD:%s\n"
+        "VERSION:%f\n"
+        "TYPE:%i\n",
+        request.target, request.payload, request.version, request.type
+    );
+
+}
+
+#endif
 #endif
