@@ -293,6 +293,7 @@ goals to complete before then:
                 Fix up compiler warnings and errors.
                 Make functions static if needed.
                 Generally just review cottage and give me feedback.
+                Also, work together on a documentation file for setting up cottage.
                 tell him about TRY CATCH idea and how to implement it.
                 tell him about putting HTML cottage tags inside normal HTML tags.
                 kind of like <div id="{{VAR:x;"error"}}">
