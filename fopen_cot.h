@@ -987,9 +987,18 @@ bool sendFile(char* filepath, int client, siteVar* vars) {
     //First, check if this file actually exists
     if (access(filepath, F_OK) == 0) {
         //Second, read the file ending
+        
+        //Images
         if (strstr(filepath, ".png")) return sendNormal(filepath, "image/png", client);
         if (strstr(filepath, ".gif")) return sendNormal(filepath, "image/gif", client);
         if (strstr(filepath, ".jpg") || strstr(filepath, ".jpeg")) return sendNormal(filepath, "image/jpeg", client);
+        
+        //Audio
+        if (strstr(filepath, ".mp3")) return sendNormal(filepath, "audio/mpeg", client);
+        if (strstr(filepath, ".wav")) return sendNormal(filepath, "audio/wav", client);
+        if (strstr(filepath, ".ogg")) return sendNormal(filepath, "audio/ogg", client);
+
+        //Web files
         if (strstr(filepath, ".css")) return sendNormal(filepath, "text/css", client);
         if (strstr(filepath, ".js")) return sendNormal(filepath, "text/javascript", client);
         if (strstr(filepath, ".html")) return sendHTML(filepath, client, vars);
