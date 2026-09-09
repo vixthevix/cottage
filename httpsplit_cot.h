@@ -38,18 +38,11 @@ but thats pretty much it
 #include "stringmap_cot.h"
 #include "routemap_cot.h"
 #include "sitevar_cot.h"
-#include "fopen_cot.h"
-#include <stddef.h>
-#include <stdlib.h>
-#include <threads.h>
-#include <time.h>
+#include "datavector_cot.h"
 
 // Function prototypes
-HTTPTYPE StrToHTTPTYPE(char* data);
-float StrToHttpVersion(char* data);
-void HttpRequestFree(HttpRequest request);
-bool HttpRequestValid(HttpRequest request);
 cotResult splitHttpRequest(HttpRequest* input, char* data);
+char* buildHttpResponse(HttpResponse response);
 int hexToInt(char hex);
 char* urlDecode(char* offload);
 bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteMap* routes);
@@ -58,68 +51,6 @@ siteVar* offloadToVariables(char* offload);
 bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath);
 
 #if defined(COTTAGE_START)
-
-/*
-Converts HTTP request type string into enum value.
-@arg data -> HTTP request type in string form.
-@return HTTP request type in enum form.
-*/
-HTTPTYPE StrToHTTPTYPE(char* data) {
-    cottageCheck(UNKNOWN);
-    if (!data) return UNKNOWN;
-
-    if (!strcmp(data, "GET")) return GET;
-    if (!strcmp(data, "PUT")) return PUT;
-    if (!strcmp(data, "POST")) return POST;
-    if (!strcmp(data, "DELETE")) return DELETE;
-    if (!strcmp(data, "PATCH")) return PATCH;
-    if (!strcmp(data, "HEAD")) return HEAD;
-    if (!strcmp(data, "OPTIONS")) return OPTIONS;
-    if (!strcmp(data, "TRACE")) return TRACE;
-    if (!strcmp(data, "CONNECT")) return CONNECT;
-
-    return UNKNOWN;
-}
-
-/*
-Converts HTTP version string into enum value.
-@arg data -> HTTP version in string form.
-@return HTTP version in enum form.
-*/
-float StrToHttpVersion(char* data) {
-    cottageCheck(0);
-    if (!data) return UNKNOWN;
-
-    if (!strcmp(data, "HTTP/0.9")) return 0.9;
-    if (!strcmp(data, "HTTP/1.0")) return 1.0;
-    if (!strcmp(data, "HTTP/1.1")) return 1.1;
-    if (!strcmp(data, "HTTP/2")) return 2;
-    if (!strcmp(data, "HTTP/3")) return 3;
-
-    return -1;
-
-}
-
-/*
-Frees HttpRequest from memory.
-@arg request -> target to free.
-*/
-void HttpRequestFree(HttpRequest request) {
-    cottageCheck();
-    if (request.target) free(request.target);
-    if (request.options) strMapFree(request.options);
-    if (request.payload) free(request.payload);
-}
-
-/*
-Checks if a HttpRequest is valid for interpreting.
-@arg request -> target to analyze.
-@return if valid.
-*/
-bool HttpRequestValid(HttpRequest request) {
-    cottageCheck(false);
-    return (request.target && request.options && (request.type > UNKNOWN) && (request.version > -1));
-}
 
 /*
 Reads a HTTP request in string form, and stores in HttpRequest.
@@ -167,7 +98,7 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
             buffer[bufferIndex++] = data[dataIndex];
         else {
             if (item == 0) { //type
-                request.type = StrToHTTPTYPE(buffer);
+                request.type = StrToHttpRequest_Code(buffer);
             }
             else if (item == 1) { //target
                 request.target = (char*) malloc(strlen(buffer) + 1);

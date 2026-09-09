@@ -13,20 +13,12 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "error_cot.h"
 #include "sitevar_cot.h"
 #include "init_cot.h"
-
-/*
-Struct for dynamically storing and resizing a character array.
-*/
-typedef struct dataVector {
-    char* data;
-    uint32_t capacity;
-    uint32_t index;
-} dataVector;
+#include "stringmap_cot.h"
+#include "routefunction_cot.h"
+#include "datavector_cot.h"
 
 // Function prototypes
 bool sendNormal(char* filepath, char* type, int client);
-dataVector dataVectorInit(uint32_t capacity);
-bool dataVectorPush(dataVector* target, char c);
 cotResult openHTML(char** input, const char* filepath, siteVar* variables);
 bool sendHTML(const char* filepath, int client, siteVar* variables);
 bool sendFile(char* filepath, int client, siteVar* vars);
@@ -77,43 +69,6 @@ bool sendNormal(char* filepath, char* type, int client) {
     free(buffer);
     fclose(file);
 
-    return true;
-}
-
-/*
-Initialises a dataVector.
-@arg capacity -> initial capacity to give.
-@return new dataVector.
-*/
-dataVector dataVectorInit(uint32_t capacity) {
-    if (capacity == 0) {
-        return (dataVector){0, 0, 0};
-    }
-    
-    dataVector target = {
-        .data = (char*) calloc(capacity, sizeof(char)),
-        .capacity = capacity,
-        .index = 0,
-    };
-
-    return target;
-}
-
-/*
-Pushes a character onto a dataVector.
-@arg target -> dataVector to push character onto.
-@arg c -> character to push.
-@return status of push.
-*/
-bool dataVectorPush(dataVector* target, char c) {
-    uint32_t load = target->index / target->capacity * 100;
-    if (load > 60) {
-        target->capacity <<= 1;
-        target->data = (char*) realloc(target->data, target->capacity * sizeof(char));
-        if (!target->data) return false;
-    }
-
-    target->data[target->index++] = c;
     return true;
 }
 

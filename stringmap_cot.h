@@ -103,12 +103,13 @@ Frees a stringMap from memory.
 */
 void strMapFree(stringMap* map) {
     cottageCheck();
+    if (!map) return;
     //Free each pair in the map.
     for (unsigned int i = 0; i < map->capacity; i++) {
-        if (map->items[i]) strPairFree(map->items[i]);
+        if (map->items && map->items[i]) strPairFree(map->items[i]);
     }
-    free(map->items);
-    free(map);
+    if (map->items) free(map->items);
+    if (map) free(map);
     
 }
 

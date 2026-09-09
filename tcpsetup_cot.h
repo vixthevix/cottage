@@ -50,7 +50,7 @@ char* serverRecvClient(int clientfd);
 void serverCloseClient(int clientfd);
 void serverClose(ServerConfig* server);
 cotResult CotPollInit(CotPoll* input, int server_fd, int maxClientCount);
-int CotPollPoll(CotPoll poll);
+int CotPollPoll(CotPoll poll, int timeout);
 int CotPollAccess(CotPoll poll, int index);
 void CotPollPush(CotPoll poll, int clientfd);
 void CotPollPop(CotPoll poll, int clientfd);
@@ -264,11 +264,12 @@ cotResult CotPollInit(CotPoll* input, int server_fd, int maxClientCount) {
 /*
 Checks for number of clients waiting to be polled.
 @arg poll -> CotPoll to check.
+@arg timeout -> duration of poll check in milliseconds.
 @return number of clients to be polled.
 */
-int CotPollPoll(CotPoll poll) {
+int CotPollPoll(CotPoll poll, int timeout) {
     cottageCheck(0);
-    return epoll_wait(poll.init_fd, poll.clients, poll.maxClientCount, -1);
+    return epoll_wait(poll.init_fd, poll.clients, poll.maxClientCount, timeout);
 }
 
 /*
