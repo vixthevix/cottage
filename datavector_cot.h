@@ -61,6 +61,7 @@ bool dataVectorPush(dataVector* target, char c) {
     }
 
     target->data[target->index++] = c;
+    target->data[target->index] = 0; //null terminate it.
     return true;
 }
 

@@ -18,10 +18,10 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 // #include "conversion_cot.h"
 // #include "httpsplit_cot.h"
 
+#include "init_cot.h"
 #include "dependencies_cot.h"
 #include "routemap_cot.h"
 #include "stringmap_cot.h"
-#include "init_cot.h"
 
 // Function Prototypes
 bool newRoute(char* path, RouteEntry route);

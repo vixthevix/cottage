@@ -279,6 +279,8 @@ void HttpRequestFree(HttpRequest request);
 bool HttpRequestValid(HttpRequest request);
 cotResult HttpResponseInit(HttpResponse* input, float version, HttpResponse_Code type);
 void HttpResponseFree(HttpResponse response);
+bool HttpResponseAddOption(HttpResponse response, const char* key, const char* value);
+bool HttpResponseAddPayload(HttpResponse* response, char* payload);
 bool sendCustom(HttpResponse response, int client);
 char* buildHttpResponse(HttpResponse response);
 
@@ -481,6 +483,39 @@ void HttpResponseFree(HttpResponse response) {
 }
 
 /*
+Wrapper to insert option into HttpResponse.
+@arg response -> HttpResponse to edit.
+@arg key -> key of option.
+@arg value -> value of option.
+@return status of insert.
+*/
+bool HttpResponseAddOption(HttpResponse response, const char* key, const char* value) {
+    return strMapInsert(&(response.options), key, value);
+}
+
+/*
+Adds a copy of a payload into HttpResponse.
+@arg response -> HttpResponse to edit.
+@arg payload -> data to insert.
+@return status of insert.
+*/
+bool HttpResponseAddPayload(HttpResponse* response, char* payload) {
+    if (!payload) {
+        newResultError("HttpResponseAddPayload: payload invalid.");
+        return false;
+    }
+    if (response->payload) free(response->payload);
+    response->payload = (char*) calloc(strlen(payload) + 1, sizeof(char));
+    if (!response->payload) {
+        newResultError("HttpResponseAddPayload: out of memory.");
+        return false;
+    }
+    strcpy(response->payload, payload);
+
+    return true;
+}
+
+/*
 Sends a custom HTTP response to a client.
 @arg response -> HttpResponse container.
 @arg client -> fd to send data to.
@@ -554,6 +589,7 @@ char* buildHttpResponse(HttpResponse response) {
     dataVectorPushString(&vector, response.payload);
 
     end_jump:
+    vector.data[vector.index] = 0; //null terminate it
     return vector.data;
 }
 

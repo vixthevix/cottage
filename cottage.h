@@ -7,6 +7,8 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #ifndef COTTAGE_COT //guard
 #define COTTAGE_COT
 
+#include "init_cot.h"
+#include "manager_cot.h"
 #include "tcpsetup_cot.h"
 #include "stringmap_cot.h"
 #include "sitevar_cot.h"
@@ -18,7 +20,5 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "conversion_cot.h"
 #include "routemap_cot.h"
 #include "httpsplit_cot.h"
-#include "manager_cot.h"
-#include "init_cot.h"
 
 #endif //guard
