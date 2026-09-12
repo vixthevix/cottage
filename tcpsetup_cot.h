@@ -46,7 +46,7 @@ typedef struct ServerConfig {
 bool applyNonBlocking(int fd);
 ServerConfig* serverInit(const char* address, const char* port, uint32_t client_max);
 int serverAcceptClient(ServerConfig* server);
-char* serverRecvClient(int clientfd);
+char* serverRecvClient(int clientfd, int* bytes);
 void serverCloseClient(int clientfd);
 void serverClose(ServerConfig* server);
 cotResult CotPollInit(CotPoll* input, int server_fd, int maxClientCount);
@@ -188,15 +188,19 @@ int serverAcceptClient(ServerConfig* server) {
 /*
 Reads data sent by client.
 @arg clientfd -> file descriptor of client.
+@arg bytes -> stores bytes received.
 @return dynamically created buffer with client data. 
 */
-char* serverRecvClient(int clientfd) {
+char* serverRecvClient(int clientfd, int* bytes) {
     cottageCheck(NULL);
     const int bufferSize = 2048;
 
     char* buffer = (char*) calloc(bufferSize, sizeof(char));
     int bytesrecv = recv(clientfd, buffer, bufferSize, 0);
-    if (bytesrecv > 0) return buffer; 
+    if (bytesrecv > 0) {
+        *bytes = bytesrecv;
+        return buffer;
+    } 
     else {
         free(buffer);
         newResultError("serverRecvClient: failed to receive any bytes.");

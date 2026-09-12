@@ -24,6 +24,7 @@ typedef struct dataVector {
 dataVector dataVectorInit(uint32_t capacity);
 bool dataVectorPush(dataVector* target, char c);
 bool dataVectorPushString(dataVector* target, const char* s);
+bool dataVectorPushBytes(dataVector* target, const char* b, size_t count);
 
 #if defined(COTTAGE_START)
 
@@ -53,7 +54,7 @@ Pushes a character onto a dataVector.
 @return status of push.
 */
 bool dataVectorPush(dataVector* target, char c) {
-    uint32_t load = target->index / target->capacity * 100;
+    uint32_t load = (target->index  * 100) / target->capacity;
     if (load > 60) {
         target->capacity <<= 1;
         target->data = (char*) realloc(target->data, target->capacity * sizeof(char));
@@ -76,6 +77,21 @@ bool dataVectorPushString(dataVector* target, const char* s) {
     size_t size = strlen(s);
     for (size_t i = 0; i < size; i++) {
         if (!dataVectorPush(target, s[i])) return false;
+    }
+    return true;
+}
+
+/*
+Pushes number of bytes onto a dataVector.
+@arg target -> dataVector to push characters onto.
+@arg b -> bytes to push.
+@arg count -> number of bytes.
+@return status of push.
+*/
+bool dataVectorPushBytes(dataVector* target, const char* b, size_t count) {
+    if (!b) return false;
+    for (size_t i = 0; i < count; i++) {
+        if (!dataVectorPush(target, b[i])) return false;
     }
     return true;
 }

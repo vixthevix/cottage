@@ -240,6 +240,7 @@ typedef struct HttpResponse {
     HttpResponse_Code type;
     stringMap* options;
     char* payload;
+    size_t payload_size;
 } HttpResponse;
 
 /*
@@ -279,10 +280,11 @@ void HttpRequestFree(HttpRequest request);
 bool HttpRequestValid(HttpRequest request);
 cotResult HttpResponseInit(HttpResponse* input, float version, HttpResponse_Code type);
 void HttpResponseFree(HttpResponse response);
-bool HttpResponseAddOption(HttpResponse response, const char* key, const char* value);
-bool HttpResponseAddPayload(HttpResponse* response, char* payload);
+bool HttpResponseAddOption(HttpResponse* response, const char* key, const char* value);
+bool HttpResponseAddPayload(HttpResponse* response, char* payload, size_t size);
 bool sendCustom(HttpResponse response, int client);
 char* buildHttpResponse(HttpResponse response);
+size_t HttpResponseTotalSize(HttpResponse response);
 
 #if defined(COTTAGE_START)
 
@@ -489,28 +491,30 @@ Wrapper to insert option into HttpResponse.
 @arg value -> value of option.
 @return status of insert.
 */
-bool HttpResponseAddOption(HttpResponse response, const char* key, const char* value) {
-    return strMapInsert(&(response.options), key, value);
+bool HttpResponseAddOption(HttpResponse* response, const char* key, const char* value) {
+    return strMapInsert(&(response->options), key, value);
 }
 
 /*
 Adds a copy of a payload into HttpResponse.
 @arg response -> HttpResponse to edit.
 @arg payload -> data to insert.
+@arg size -> size of payload in bytes.
 @return status of insert.
 */
-bool HttpResponseAddPayload(HttpResponse* response, char* payload) {
+bool HttpResponseAddPayload(HttpResponse* response, char* payload, size_t size) {
     if (!payload) {
         newResultError("HttpResponseAddPayload: payload invalid.");
         return false;
     }
     if (response->payload) free(response->payload);
-    response->payload = (char*) calloc(strlen(payload) + 1, sizeof(char));
+    response->payload = (char*) calloc(size, sizeof(char));
     if (!response->payload) {
         newResultError("HttpResponseAddPayload: out of memory.");
         return false;
     }
-    strcpy(response->payload, payload);
+    memcpy(response->payload, payload, size);
+    response->payload_size = size;
 
     return true;
 }
@@ -586,11 +590,63 @@ char* buildHttpResponse(HttpResponse response) {
     dataVectorPushString(&vector, "\r\n");
     if (!response.payload) goto end_jump;
     //Just push the payload directly
-    dataVectorPushString(&vector, response.payload);
+    dataVectorPushBytes(&vector, response.payload, response.payload_size);
 
     end_jump:
     vector.data[vector.index] = 0; //null terminate it
     return vector.data;
+}
+
+/*
+Counts up total size of HttpResponse raw data.
+@arg response -> HttpResponse to analyze.
+@return total size of raw data.
+*/
+size_t HttpResponseTotalSize(HttpResponse response) {
+
+    size_t count = 0;
+
+    //We will need some data
+    char* version = HttpVersionToStr(response.version);
+    if (!version) return 0;
+
+    //We need to get the response type in string form.
+    //DO THIS NEXT MAKE A HUGE ARRAY OF STRINGS AND
+    //CHANGE RESPONSE ENUM FOR INDEXING.
+    if (response.type ==  HttpStatus_Invalid || response.type >= HttpStatus_xxx_max) {
+        if (version) free(version);
+        return 0;
+    }
+    char* type = HttpResponse_Code_List[response.type];
+
+    char header_buffer[256] = {0};
+    snprintf(header_buffer, 256, "%s %s\r\n", version, type);
+    count += strlen(header_buffer);
+
+    //now we have to look through our options and sprintf them.
+    if (!response.options || !response.options->items) goto payload_jump;
+    const unsigned int option_max = response.options->capacity;
+    for (unsigned int i = 0; i < option_max; i++) {
+        if (response.options->items[i] != NULL) {
+            //Valid string pair
+            stringPair* pair = response.options->items[i];
+            //Validate strings
+            if (!pair->key || !pair->value) continue;
+            
+            char option_buffer[512] = {0};
+            snprintf(option_buffer, 512, "%s: %s\r\n", pair->key, pair->value);
+            count += strlen(option_buffer);
+        }
+    }
+
+    payload_jump:
+    count += strlen("\r\n");
+    if (!response.payload) goto end_jump;
+    //Just push the payload directly
+    count += response.payload_size;
+
+    end_jump:
+    return count;
 }
 
 #endif
