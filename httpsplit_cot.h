@@ -48,6 +48,7 @@ char* urlDecode(char* offload);
 bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteMap* routes);
 void* INTERNAL_StrToData(string_cot value, VARTYPE type);
 siteVar* offloadToVariables(char* offload);
+stringMap* payloadToMap(char* payload);
 bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath);
 
 #if defined(COTTAGE_START)
@@ -512,6 +513,51 @@ siteVar* offloadToVariables(char* offload) {
     }
 
     return variables;
+}
+
+/*
+Converts HttpRequest payload into a stringMap.
+@arg payload -> HttpRequest string payload.
+@return stringMap encapsulating payload.
+*/
+stringMap* payloadToMap(char* payload) {
+    if (!payload) {
+        newResultError("payloadToMap: payload invalid.");
+        return NULL;
+    }
+
+    stringMap* map = strMapInit();
+    if (!map) {
+        newResultError("payloadToMap: failed to initialise map.");
+        return NULL;
+    }
+    char key[512] = {0};
+    char value[512] = {0};
+    int index = 0;
+    bool is_key = true;
+    for (int i = 0; i < strlen(payload); i++) {
+        if (payload[i] == '=') {
+            is_key = false;
+            index = 0;
+            continue;
+        }
+        if (payload[i] == '&') {
+            is_key = true;
+            index = 0;
+            strMapInsert(&map, key, value);
+            memset(key, 0, 512);
+            memset(value, 0, 512);
+            continue;
+        }
+        
+        if (is_key) key[index++] = payload[i];
+        else value[index++] = payload[i];
+    }
+    if (!is_key && key[0] && value[0]) {
+        strMapInsert(&map, key, value);
+    }
+
+    return map;
 }
 
 /*

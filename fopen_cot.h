@@ -24,6 +24,7 @@ bool sendHTML(const char* filepath, int client, siteVar* variables);
 bool sendFile(char* filepath, int client, siteVar* vars);
 bool sendRedirect(const char* path, int client);
 
+
 #if defined(COTTAGE_START)
 
 /*
@@ -117,6 +118,8 @@ Opens and creates a cottage valid HTML buffer.
 cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
     cottageCheck(newResultError("openHTML: cottage not initialised."));
     
+    //newResultError("openHTML:  starting...");
+    
     FILE* file = fopen(filepath, "r");
     if (!file) return newResultError("openHTML: filepath not found");
 
@@ -144,6 +147,9 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
     //use a diamond bracket count to know when to read curlies
     int diamondCount = 0;
 
+    bool inComment = false;
+    int commentCount = 0;
+
     const int stateMax = 512;
 
     //stack of FOR states in file.
@@ -169,9 +175,10 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
 
     //command is VAR, INSERT, IF, FOR etc.
     //offload is the data after.
+    //NOTE: ADD BOUNDS CHECKING FOR OI AND CI.
     const int
-    commandSize = 50,
-    offloadSize = 100;
+    commandSize = 1024,
+    offloadSize = 1024; 
     char* command = (char*) calloc(commandSize, sizeof(char));
     char* offload = (char*) calloc(offloadSize, sizeof(char));
     int 
@@ -330,6 +337,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
             else if (!strcmp(command, "INSERT")) {
                 mode = modeINSERT;
+                //newResultError("openHTML:  starting INSERT...");
                 goto jumpINSERT;
             }
             //ADD MORE CASES HERE
@@ -425,9 +433,11 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             else {
                 finishedEmbedRead = true;
                 oi = 0;
+                //newResultError("openHTML:  INSERT main entered");
 
                 const int linkSize = offloadSize;
                 char* link = (char*) calloc(linkSize, sizeof(char));
+                //newResultError("openHTML:  INSERT, link made");
                 int j = 0;
                 for (j = 0; offload[j] != 0 && offload[j] != ';'; j++) {
                     link[j] = offload[j];
@@ -436,7 +446,11 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                     goto readINPUT;
                 }
 
+                //newResultError("openHTML:  INSERT, link made");
+
                 siteVar* newVariables = siteVarInit("newVariables", COMPOSITE, 0, NULL);
+
+                //newResultError("openHTML:  INSERT, newVariables made");
 
                 //Read through the offload for names and values of variables.
                 char 
@@ -451,6 +465,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                 //keep track of array
                 bool inArray = false;
                 
+                //newResultError("openHTML: INSERT, starting arg parsing");
                 j++;
                 for (; offload[j] != 0; j++) {
                     if (offload[j] == '"') {
@@ -468,6 +483,10 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                     }
                     else if (offload[j] == ',' && !isVar && !inQuotes && !inArray) {
                         isVar = true;
+
+                        // char errbuffer[100] = {0};
+                        // sprintf(errbuffer, "openHTML: INSERT, curVar=%s curValue=%s\n", curVar, curValue);
+                        // newResultError(errbuffer);
 
                         //we have a value and pair
                         if (curVar[0] && curValue[0]) {
@@ -815,12 +834,14 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
             }
         }
 
+
+
         //To ensure the final curly bracket in a cottage tag is skipped
-        else if (c == '}' && finishedEmbedRead && !diamondCount) {
+        else if (c == '}' && finishedEmbedRead && !commentCount) {
             finishedEmbedRead = false;
         }
 
-        else if (c == '{' && !diamondCount) {
+        else if (c == '{' && !commentCount) {
             bsi++;
 
             //Check if there is another curly in front.
@@ -836,9 +857,33 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
         else {
             dataWrite:
             if (states[curCondState].valid) {
-                if (c == '<') diamondCount++;
-                else if (c == '>') diamondCount--;
-                dataVectorPush(&data, (char)c);
+                //Check for comment
+                if (c == '<') {
+                    if (
+                        fullFile[fi] && fullFile[fi + 1] && fullFile[fi + 2] &&
+                        fullFile[fi] == '!' &&
+                        fullFile[fi + 1] == '-' &&
+                        fullFile[fi + 2] == '-'
+                    ) {
+                        commentCount++;
+                        //newResultError("openHTML: commentCount++");
+                        fi += 3;
+                        continue;
+                    }
+                }
+                else if (c == '-') {
+                    if (
+                        fullFile[fi] && fullFile[fi + 1] &&
+                        fullFile[fi] == '-' &&
+                        fullFile[fi + 1] == '>'
+                    ) {
+                        commentCount--;
+                        //newResultError("openHTML: commentCount--");
+                        fi += 2;
+                        continue;
+                    }
+                }
+                if (!commentCount) dataVectorPush(&data, (char)c);
             }
         }
     }
@@ -913,6 +958,7 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
 
     success:
     if (data) {
+        //fprintf(stderr, "HTTP DATA TO SEND:\n\n%s\n\n", data);
         //Build HTTP header
         const char* header = 
         "HTTP/1.1 200 OK\r\n"
