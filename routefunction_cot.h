@@ -228,6 +228,15 @@ const char* HttpResponse_Code_List[] = {
     "511 Network Authentication Required"
 };
 
+typedef enum HttpVersion {
+    HTTP_UNKNOWN_VERSION = 0,
+    HTTP_0_9,
+    HTTP_1_0,
+    HTTP_1_1,
+    HTTP_2,
+    HTTP_3,
+} HttpVersion;
+
 /*
 Struct that encapsulates a HTTP responset.
 @param version -> HTTP version number of the request.
@@ -236,7 +245,7 @@ Struct that encapsulates a HTTP responset.
 @param payload -> Extra data attached to the end of the request.
 */
 typedef struct HttpResponse {
-    float version;
+    HttpVersion version;
     HttpResponse_Code type;
     stringMap* options;
     char* payload;
@@ -272,13 +281,14 @@ typedef struct RouteEntry {
 
 // Function prototypes
 void debugHttpRequest(HttpRequest request);
+bool HttpVersionCompare(float a, float b);
 HttpRequest_Code StrToHttpRequest_Code(char* data);
-float StrToHttpVersion(char* data);
+HttpVersion StrToHttpVersion(char* data);
 char* HttpRequest_CodeToStr(HttpRequest_Code type);
-char* HttpVersionToStr(float version);
+char* HttpVersionToStr(HttpVersion version);
 void HttpRequestFree(HttpRequest request);
 bool HttpRequestValid(HttpRequest request);
-cotResult HttpResponseInit(HttpResponse* input, float version, HttpResponse_Code type);
+cotResult HttpResponseInit(HttpResponse* input, HttpVersion version, HttpResponse_Code type);
 void HttpResponseFree(HttpResponse response);
 bool HttpResponseAddOption(HttpResponse* response, const char* key, const char* value);
 bool HttpResponseAddPayload(HttpResponse* response, char* payload, size_t size);
@@ -294,16 +304,19 @@ Debug display for a HTTP request.
 */
 void debugHttpRequest(HttpRequest request) {
     cottageCheck();
+    char* type = HttpRequest_CodeToStr(request.type);
     fprintf(stderr,
         "REQUEST DEBUG\n"
         "TARGET:%s\n"
         "PAYLOAD:%s\n"
         "VERSION:%f\n"
-        "TYPE:%i\n",
-        request.target, request.payload, request.version, request.type
+        "TYPE:%s\n",
+        request.target, request.payload, request.version, type
     );
+    if (type) free(type);
 
 }
+
 
 /*
 Converts HTTP request type string into enum value.
@@ -328,21 +341,21 @@ HttpRequest_Code StrToHttpRequest_Code(char* data) {
 }
 
 /*
-Converts HTTP version string into float value.
+Converts HTTP version string into enum value.
 @arg data -> HTTP version in string form.
-@return HTTP version in float form.
+@return HTTP version in enum form.
 */
-float StrToHttpVersion(char* data) {
+HttpVersion StrToHttpVersion(char* data) {
     cottageCheck(0);
     if (!data) return UNKNOWN;
 
-    if (!strcmp(data, "HTTP/0.9")) return 0.9;
-    if (!strcmp(data, "HTTP/1.0")) return 1.0;
-    if (!strcmp(data, "HTTP/1.1")) return 1.1;
-    if (!strcmp(data, "HTTP/2")) return 2;
-    if (!strcmp(data, "HTTP/3")) return 3;
+    if (!strcmp(data, "HTTP/0.9")) return HTTP_0_9;
+    if (!strcmp(data, "HTTP/1.0")) return HTTP_1_0;
+    if (!strcmp(data, "HTTP/1.1")) return HTTP_1_1;
+    if (!strcmp(data, "HTTP/2")) return HTTP_2;
+    if (!strcmp(data, "HTTP/3")) return HTTP_3;
 
-    return -1;
+    return HTTP_UNKNOWN_VERSION;
 
 }
 
@@ -398,26 +411,27 @@ char* HttpRequest_CodeToStr(HttpRequest_Code type) {
 
 /*
 Converts HTTP version to string equivalent
-@arg data -> HTTP version in float form.
+@arg data -> HTTP version in enum form.
 @return HTTP version in string form.
 */
-char* HttpVersionToStr(float version) {
+char* HttpVersionToStr(HttpVersion version) {
     cottageCheck(NULL);
     
     const int bufferMax = 20;
     char* buffer = calloc(bufferMax, sizeof(char));
-
-	if      (version == 0.9) strncpy(buffer, "HTTP/0.9", bufferMax);
-	else if (version == 1.0) strncpy(buffer, "HTTP/1.0", bufferMax);
-	else if (version == 1.1) strncpy(buffer, "HTTP/1.1", bufferMax);
-	else if (version == 2.0) strncpy(buffer, "HTTP/2", bufferMax);
-	else if (version == 3.0) strncpy(buffer, "HTTP/3", bufferMax);
+    if (buffer) newResultError("HttpVersionToStr: buffer built.");
+	if      (version == HTTP_0_9) strncpy(buffer, "HTTP/0.9", bufferMax);
+	else if (version == HTTP_1_0) strncpy(buffer, "HTTP/1.0", bufferMax);
+	else if (version == HTTP_1_1) strncpy(buffer, "HTTP/1.1", bufferMax);
+	else if (version == HTTP_2) strncpy(buffer, "HTTP/2", bufferMax);
+	else if (version == HTTP_3) strncpy(buffer, "HTTP/3", bufferMax);
 	else {
 		if (buffer) free(buffer);
 		return NULL;
 	}
 
     buffer = realloc(buffer, strlen(buffer) + 1);
+
 
     return buffer;
 }
@@ -446,23 +460,24 @@ bool HttpRequestValid(HttpRequest request) {
 /*
 Creates an empty HttpResponse container.
 @arg input -> stores container.
-@arg version -> HTTP version number.
+@arg version -> HTTP version enum.
 @arg type -> HTTP response code.
 @return error status of creation.
 */
-cotResult HttpResponseInit(HttpResponse* input, float version, HttpResponse_Code type) {
+cotResult HttpResponseInit(HttpResponse* input, HttpVersion version, HttpResponse_Code type) {
 	HttpResponse response;
+    fprintf(stderr, "HttpResponseInit: version: %f\n", version);
 	if (
-		version != 0.9 &&
-		version != 1.0 &&
-		version != 1.1 &&
-		version != 2   &&
-		version != 3
+        version != HTTP_0_9 &&
+        version != HTTP_1_0 &&
+        version != HTTP_1_1 &&
+        version != HTTP_2 &&
+        version != HTTP_3 
 	) {
 		return newResultError("HttpResponseInit: invalid version.");
 	}
 
-	if (type ==  HttpStatus_Invalid || type >= HttpStatus_xxx_max) {
+	if (type == HttpStatus_Invalid || type >= HttpStatus_xxx_max) {
 		return newResultError("HttpResponseInit: invalid type.");
 	}
 
@@ -533,7 +548,7 @@ bool sendCustom(HttpResponse response, int client) {
         return false;
     }
 
-    const size_t size = strlen(buffer);
+    const size_t size = HttpResponseTotalSize(response);
     int bytes = send(client, buffer, size, 0);
     if (bytes <= 0) {
         newResultError("sendCustom: could not send bytes to client.");
@@ -551,17 +566,24 @@ Reads a HttpResponse object, and converts into HTTP response string.
 char* buildHttpResponse(HttpResponse response) {
     //We'll need dataVector.
     dataVector vector = dataVectorInit(256);
-    if (!vector.data) return NULL;
+    if (!vector.data) {
+        newResultError("buildHttpResponse: build vector could not be initialised.");
+        return NULL;
+    } 
 
     //We will need some data
     char* version = HttpVersionToStr(response.version);
-    if (!version) return NULL;
+    if (!version) {
+        newResultError("buildHttpResponse: invalid version.");
+        return NULL;
+    } ;
 
     //We need to get the response type in string form.
     //DO THIS NEXT MAKE A HUGE ARRAY OF STRINGS AND
     //CHANGE RESPONSE ENUM FOR INDEXING.
     if (response.type ==  HttpStatus_Invalid || response.type >= HttpStatus_xxx_max) {
         if (version) free(version);
+        newResultError("buildHttpResponse: invalid type.");
         return NULL;
     }
     char* type = HttpResponse_Code_List[response.type];
