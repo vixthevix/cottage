@@ -466,7 +466,6 @@ Creates an empty HttpResponse container.
 */
 cotResult HttpResponseInit(HttpResponse* input, HttpVersion version, HttpResponse_Code type) {
 	HttpResponse response;
-    fprintf(stderr, "HttpResponseInit: version: %f\n", version);
 	if (
         version != HTTP_0_9 &&
         version != HTTP_1_0 &&

@@ -8,6 +8,7 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 #include "dependencies_cot.h"
 #include "hashfunc_cot.h"
 #include "init_cot.h"
+#include "error_cot.h"
 
 /*
 A siteVar is an encapsulation of a piece of data, with a given type, data container,
@@ -238,7 +239,7 @@ Gets a siteVar inside a COMPOSITE siteVar.
 */
 siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
     cottageCheck(NULL);
-    if (!target || target->type != COMPOSITE) return 0;
+    if (!target || target->type != COMPOSITE || !name) return NULL;
     
     size_t hashed = stringHash(name);
     size_t initpos = hashed % target->arrayLen;
@@ -255,6 +256,7 @@ siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
 
         //Round-robin check
         if (curVar == NULL || curpd > curVar->pd) {
+            newResultError("siteVarCompositeAccess: could not find target.");
             return NULL;
         }
         //Normal check
@@ -264,6 +266,8 @@ siteVar* siteVarCompositeAccess(siteVar* target, char* name) {
 
         curpd++;
     }
+
+    newResultError("siteVarCompositeAccess: end of list reached.");
 
     return NULL;
 }
@@ -534,6 +538,23 @@ Creates a memory clone of a siteVar.
 */
 siteVar* siteVarClone(siteVar* target) {
     cottageCheck(NULL);
+    if (!target) return NULL;
+    
+    //Special case
+    if (target->type == COMPOSITE) {
+        siteVar* newComp = siteVarInit(target->name, target->type, 0, NULL);
+        if (!newComp) return NULL;
+        
+        siteVar** data = (siteVar**)target->data;
+        for (size_t i = 0; i < target->arrayLen; i++) {
+            if (data[i]) {
+                siteVarCompositeInsert(&newComp, data[i]);
+            }
+        }
+        return newComp;
+    }
+    
+    //Normal case
     return siteVarInit(target->name, target->type, target->arrayItemCount, target->data);
 }
 

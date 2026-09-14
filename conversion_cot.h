@@ -372,10 +372,9 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 			for (size_t j = i + 1, k = 0; j < strlen(exp); j++, k++) {
 				remainder[k] = exp[j];
 			}
-
 			siteVar* compositeVars = siteVarCompositeAccess(variables, var);
+
 			siteVar* returnVal = NULL;
-			
 			//recursion
 			cotResult returnValResult = BC_StrToVariable(&returnVal, remainder, compositeVars, originalVariables);
 			if (returnValResult.status == COT_ERROR) {
@@ -509,7 +508,7 @@ cotResult BC_StrToVariable(siteVar** input, char* exp, siteVar* variables, siteV
 		else var[i] = c;
 	}
 
-	//We have a complete var, so treat it as a siteVar name.
+	//We have a complete var, so treat it as a siteVar name.	
 	siteVar* returnVal =  siteVarCompositeAccess(variables, var);
 	free(var);
 	if (!returnVal) return newResultError("BC_StrToVariable: could not access simple var in variables");

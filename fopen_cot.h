@@ -397,7 +397,7 @@ cotResult openHTML(char** input, const char* filepath, siteVar* variables) {
                         newResultError("openHTML: VAR could not convert string into siteVar");
                         goto failure;
                     }
-                } 
+                }
                 //we need to convert this value into a string
                 char* value = BC_VariableToString(var);
                 if (var) siteVarFree(var);
@@ -958,7 +958,6 @@ bool sendHTML(const char* filepath, int client, siteVar* variables) {
 
     success:
     if (data) {
-        //fprintf(stderr, "HTTP DATA TO SEND:\n\n%s\n\n", data);
         //Build HTTP header
         const char* header = 
         "HTTP/1.1 200 OK\r\n"
