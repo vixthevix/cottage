@@ -193,19 +193,69 @@ Reads data sent by client.
 */
 char* serverRecvClient(int clientfd, int* bytes) {
     cottageCheck(NULL);
-    const int bufferSize = 8192;
+    const size_t 
+    bufferSize = 512,
+    chunkSize = 4096;
+    size_t bytes_received = 0;
 
     char* buffer = (char*) calloc(bufferSize, sizeof(char));
-    int bytesrecv = recv(clientfd, buffer, bufferSize, 0);
-    if (bytesrecv > 0) {
-        *bytes = bytesrecv;
-        return buffer;
-    } 
-    else {
-        free(buffer);
-        newResultError("serverRecvClient: failed to receive any bytes.");
+    dataVector vector = dataVectorInit(bufferSize);
+    if (!(vector.data)) {
+        newResultError("serverRecvClient: failed to build buffer.");
         return NULL;
     }
+
+    while (true) {
+        //We read a chunk at a time, until all data has been read properly.
+        char chunk[chunkSize];
+        ssize_t bytes_read = recv(clientfd, chunk, chunkSize, 0)
+        
+        if (bytes_read > 0) {
+            //Data received so copy it over.
+            bytes_received += bytes_read;
+            dataVectorPushBytes(&vector, chunk, bytes_read);
+        }
+        else if (bytes_read == 0) { //No more data left to read.
+            if (bytes_received == 0) { //What if no data was received at all?
+                newResultError("serverRecvClient: client sent no data.");
+                if (vector.data) free(vector.data);
+                return NULL;
+            }
+            break;
+        }
+        else { //error ocurred
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                //The buffer stored in the OS is drained.
+                break;
+            }
+            else {
+                //Actual error ocurred
+                newResultError("serverRecvClient: receiving error ocurred.");
+                if (vector.data) free(vector.data);
+                return NULL;
+            }
+        }
+    }
+
+    //Check if we have read anything, and if its a proper HTTP request.
+    if (bytes_received > 0) {
+        //Every valid request has a double carriage-return newline
+        if ((vector.data) && strstr(vector.data, "\r\n\r\n") != NULL) {
+            *bytes = bytes_received;
+            return vector.data
+        }
+        else {
+            newResultError("serverRecvClient: invalid HTTP request.");
+            if (vector.data) free(vector.data);
+            return NULL;
+        }
+    }
+
+    //Otherwise, no bytes sent, so send NULL
+    newResultError("serverRecvClient: client sent no data.");
+    if (vector.data) free(vector.data);
+    return NULL;
+
 }
 
 /*
