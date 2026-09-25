@@ -48,7 +48,7 @@ char* urlDecode(char* offload);
 bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteMap* routes);
 void* INTERNAL_StrToData(string_cot value, VARTYPE type);
 siteVar* offloadToVariables(char* offload);
-stringMap* payloadToMap(char* payload);
+stringMap* payloadToMap(char* payload, bool encoded);
 bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char* filePath);
 
 #if defined(COTTAGE_START)
@@ -242,7 +242,8 @@ char* urlDecode(char* offload) {
         decoded[j++] = offload[i++];
     }
     
-    decoded = (char*)realloc(decoded, strlen(decoded) + 1);
+    decoded[j] = 0; //null terminate
+    decoded = (char*)realloc(decoded, j + 1);
     return decoded;
 }
 
@@ -308,9 +309,9 @@ bool handleRequest(HttpRequest request, int clientfd, siteVar* extraData, RouteM
     char* linkAsset = prependAssetFolder(linkClean);
 
     bool fileSent = sendFile(linkAsset, clientfd, extraData);
-    free(linkClean);
-    free(linkAsset);
-    free(linkDecode);
+    if (linkClean) free(linkClean);
+    if (linkAsset) free(linkAsset);
+    if (linkDecode) free(linkDecode);
 
     if (!fileSent) {
         newResultError("handleRequest: GET for asset failed");
@@ -518,9 +519,10 @@ siteVar* offloadToVariables(char* offload) {
 /*
 Converts HttpRequest payload into a stringMap.
 @arg payload -> HttpRequest string payload.
+@arg encoded -> is the payload URL encoded?
 @return stringMap encapsulating payload.
 */
-stringMap* payloadToMap(char* payload) {
+stringMap* payloadToMap(char* payload, bool encoded) {
     if (!payload) {
         newResultError("payloadToMap: payload invalid.");
         return NULL;
@@ -531,8 +533,10 @@ stringMap* payloadToMap(char* payload) {
         newResultError("payloadToMap: failed to initialise map.");
         return NULL;
     }
-    char key[512] = {0};
-    char value[512] = {0};
+    
+    dataVector key = dataVectorInit(128);
+    dataVector value = dataVectorInit(128);
+
     int index = 0;
     bool is_key = true;
     for (int i = 0; i < strlen(payload); i++) {
@@ -544,18 +548,32 @@ stringMap* payloadToMap(char* payload) {
         if (payload[i] == '&') {
             is_key = true;
             index = 0;
-            strMapInsert(&map, key, value);
-            memset(key, 0, 512);
-            memset(value, 0, 512);
+            if (encoded) {
+                char* value_decoded = urlDecode(value.data);
+                strMapInsert(&map, key.data, value_decoded);
+                if (value_decoded) free(value_decoded);
+            }
+            else strMapInsert(&map, key.data, value.data);
+            if (key.data) free(key.data);
+            if (value.data) free(value.data);
+            key = dataVectorInit(128);
+            value = dataVectorInit(128);
             continue;
         }
         
-        if (is_key) key[index++] = payload[i];
-        else value[index++] = payload[i];
+        if (is_key) dataVectorPush(&key, payload[i]);
+        else dataVectorPush(&value, payload[i]);
     }
-    if (!is_key && key[0] && value[0]) {
-        strMapInsert(&map, key, value);
+    if (!is_key && key.data[0] && value.data[0]) {
+        if (encoded) {
+            char* value_decoded = urlDecode(value.data);
+            strMapInsert(&map, key.data, value_decoded);
+            if (value_decoded) free(value_decoded);
+        }
+        else strMapInsert(&map, key.data, value.data);
     }
+    if (key.data) free(key.data);
+    if (value.data) free(value.data);
 
     return map;
 }
@@ -588,7 +606,9 @@ bool defaultGet(HttpRequest request, int clientfd, siteVar* extraVariables, char
     if (!offloadVars) offloadVars = siteVarInit("variables", COMPOSITE, 0, NULL);
     siteVarCompositeInsert(&offloadVars, extraVariables);
     
+    newResultError("defaultGet: file sent attempt.");
     bool state = sendFile(filePath, clientfd, offloadVars);
+    newResultError("defaultGet: file sent attempt done.");
 
     siteVarFree(offloadVars);
     if (offloadDecode) free(offloadDecode);

@@ -95,6 +95,7 @@ bool siteVarUpdateRange(siteVar* target, uint16_t index, uint16_t range, void* d
 bool siteVarUpdateAt(siteVar* target, uint16_t index, void* data);
 bool siteVarUpdate(siteVar* target, void* data);
 bool siteVarInsert(siteVar** target, void* data);
+bool siteVarInsertRange(siteVar** target, void* data, size_t range);
 
 #if defined(COTTAGE_START)
 
@@ -175,7 +176,10 @@ Wrapper for CompositeInsert with specified siteVar data.
 */
 bool siteVarCompositeInsertNew(siteVar** target, char* name, VARTYPE type, size_t size, void* data){
     cottageCheck(false);
+    newResultError("siteVarCompositeInsertNew: start.");
     siteVar* new = siteVarInit(name, type, size, data);
+    newResultError("siteVarCompositeInsertNew: new made.");
+    if (new) newResultError("siteVarCompositeInsertNew: new valid.");
     bool state = siteVarCompositeInsert(target, new);
     siteVarFree(new);
     return state;
@@ -490,6 +494,7 @@ siteVar* siteVarInit(char* name, VARTYPE type, size_t elementCount, void* data) 
     cottageCheck(NULL);
     if (!INTERNAL_siteVarNameLegal(name)) return NULL;
 
+    //newResultError("siteVarInit: start.");
     siteVar* target = (siteVar*) calloc(1, sizeof(siteVar));
 
     target->name = (char*) calloc(strlen(name) + 1, sizeof(char));
@@ -505,6 +510,7 @@ siteVar* siteVarInit(char* name, VARTYPE type, size_t elementCount, void* data) 
     const unsigned itemCount = elementCount ? elementCount : target->arrayLen;
 
     if (type == STRING) {
+        //newResultError("siteVarInit: type is string.");
         target->data = calloc(itemCount, sizeof(string_cot));
         if (!data) goto end;
         //for each string in the array, we must also allocate data for them.
@@ -512,10 +518,15 @@ siteVar* siteVarInit(char* name, VARTYPE type, size_t elementCount, void* data) 
         string_cot* stringArray = (string_cot*) data;
         string_cot* targetData = (string_cot*) target->data;
         for (size_t i = 0; i < elementCount; i++) {
-            char* string = calloc(strlen(stringArray[i]) + 1, sizeof(char));
+            if (!stringArray[i]) continue;
+            //newResultError("siteVarInit: string array i valid.");
+            char* string = (char*) calloc(strlen(stringArray[i]) + 1, sizeof(char));
+            //if (string) newResultError("siteVarInit: string valid.");
             strcpy(string, stringArray[i]);
             targetData[i] = string;
+            //newResultError("siteVarInit: string loop cycle done.");
         }
+        //newResultError("siteVarInit: string loop done.");
     }
     else if (type == COMPOSITE) {
         INTERNAL_siteVarInitComposite(target, data, itemCount);
@@ -580,17 +591,19 @@ void siteVarFree(siteVar* target) {
     }
     else { //composite case. recursion happens here.
         for (size_t i = 0; i < target->arrayLen; i++) {
+            if (!target->data) continue;
             siteVar* cur = ((siteVar**)target->data)[i];
             if (cur) {
                 siteVarFree(cur);
             }
         }
+        if (target->data) free(target->data);
     }
     
     //free everything else
-    free(target->name);
+    if (target->name) free(target->name);
     target->name = NULL;
-    free(target);
+    if (target) free(target);
     target = NULL;
     return;
 }
@@ -768,6 +781,24 @@ bool siteVarInsert(siteVar** target, void* data) {
 
     return true;
 
+}
+
+/*
+Pushes a range of values onto the data storage of a siteVar.
+Updates if the siteVar is now an array or not.
+@arg target -> siteVar to push data onto.
+@arg data -> data array to push.
+@arg range -> how many items in data to push.
+@return status of insert.
+*/
+bool siteVarInsertRange(siteVar** target, void* data, size_t range) {
+    size_t size = INTERNAL_siteVarTypeSize((*target)->type);
+
+    for (size_t i = 0; i < range; i++) {
+        bool status = siteVarInsert(target, (data + (i * size)));
+        if (!status) return false;
+    }
+    return true;
 }
 
 #endif

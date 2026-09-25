@@ -193,7 +193,7 @@ Reads data sent by client.
 */
 char* serverRecvClient(int clientfd, int* bytes) {
     cottageCheck(NULL);
-    const int bufferSize = 2048;
+    const int bufferSize = 8192;
 
     char* buffer = (char*) calloc(bufferSize, sizeof(char));
     int bytesrecv = recv(clientfd, buffer, bufferSize, 0);

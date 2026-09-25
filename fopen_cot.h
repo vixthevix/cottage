@@ -946,6 +946,7 @@ Sends a HTML file to a client.
 bool sendHTML(const char* filepath, int client, siteVar* variables) {
     cottageCheck(false);
 
+    newResultError("sendHTML: start.");
     char* data = NULL;
     if (openHTML(&data, filepath, variables).status == COT_ERROR) {
         newResultError("sendHTML: failed to open HTML file.");

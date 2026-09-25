@@ -550,10 +550,12 @@ bool sendCustom(HttpResponse response, int client) {
     const size_t size = HttpResponseTotalSize(response);
     int bytes = send(client, buffer, size, 0);
     if (bytes <= 0) {
+        if (buffer) free(buffer);
         newResultError("sendCustom: could not send bytes to client.");
         return false;
     }
 
+    if (buffer) free(buffer);
     return true;
 }
 

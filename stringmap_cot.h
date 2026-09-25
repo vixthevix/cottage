@@ -110,7 +110,6 @@ void strMapFree(stringMap* map) {
     }
     if (map->items) free(map->items);
     if (map) free(map);
-    
 }
 
 bool strMapInsert(stringMap** strMap, char* key, char* value);
