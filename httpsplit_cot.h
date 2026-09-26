@@ -182,12 +182,33 @@ cotResult splitHttpRequest(HttpRequest* input, char* data) {
     //Finally we have our offload.
     //Copy it over as it can be interpreted in different ways depending on request type.
     //It can also be empty.
-    if (dataLen > dataIndex) { //Do we have enough space in the buffer for an offload?
-        request.payload = (char*) malloc(dataLen - dataIndex + 1);
-        memcpy(request.payload, data + dataIndex, dataLen - dataIndex);
-        request.payload[strlen(request.payload)] = 0;
+
+    //Base it on the Content-Length HTTP header, if it exists.
+    size_t payload_size = 0;
+    char* content_length_str = strMapGet(request.options, "Content-Length");
+
+    if (content_length_str) {
+        payload_size = atoi(content_length_str);
     }
-    else request.payload = NULL;
+    else {
+        payload_size = dataLen - dataIndex;
+    }
+
+    if (payload_size > 0 && (dataIndex + payload_size) <= dataLen) {
+        request.payload = (char*) malloc(payload_size + 1);
+        memcpy(request.payload, data + dataIndex, payload_size);
+        request.payload[payload_size] = 0;
+    }
+    else if (payload_size > 0) {
+        //We have a proper payload, but it exceeds our data limit, so its corrupted.
+        HttpRequestFree(request);
+        *input = error;
+        return newResultError("splitHttpRequest: payload is incomplete/corrupted.");
+    }
+    else {
+        //There is no payload, so set to NULL
+        request.payload = NULL;
+    }
 
     *input = request;
     return newResultOK();

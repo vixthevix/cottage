@@ -20,6 +20,7 @@ Code is part of the cottage framework (https://github.com/vixthevix/cottage)
 
 //needed for error handling
 #include <time.h>
+#include <errno.h>
 
 //needed for sockets
 #include <sys/types.h>

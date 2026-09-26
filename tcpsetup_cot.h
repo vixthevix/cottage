@@ -208,7 +208,7 @@ char* serverRecvClient(int clientfd, int* bytes) {
     while (true) {
         //We read a chunk at a time, until all data has been read properly.
         char chunk[chunkSize];
-        ssize_t bytes_read = recv(clientfd, chunk, chunkSize, 0)
+        ssize_t bytes_read = recv(clientfd, chunk, chunkSize, 0);
         
         if (bytes_read > 0) {
             //Data received so copy it over.
@@ -242,7 +242,7 @@ char* serverRecvClient(int clientfd, int* bytes) {
         //Every valid request has a double carriage-return newline
         if ((vector.data) && strstr(vector.data, "\r\n\r\n") != NULL) {
             *bytes = bytes_received;
-            return vector.data
+            return vector.data;
         }
         else {
             newResultError("serverRecvClient: invalid HTTP request.");
